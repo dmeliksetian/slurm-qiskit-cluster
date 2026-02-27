@@ -1,0 +1,9 @@
+[submodule "shared/qrmi"]
+	path = shared/qrmi
+	url = https://github.com/qiskit-community/qrmi.git
+	branch = main
+
+[submodule "shared/spank-plugins"]
+	path = shared/spank-plugins
+	url = https://github.com/qiskit-community/spank-plugins.git
+	branch = main

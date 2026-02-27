@@ -1,0 +1,112 @@
+# =============================================================================
+# Pinned requirements for /shared/pyenv
+# Generated from a confirmed working install — do not edit versions manually.
+#
+# IMPORTANT: qrmi is intentionally excluded from this file.
+# It must be built from source in /shared/qrmi and installed separately
+# because it is a Rust extension that must be compiled against the local
+# system ABI. See setup/02-build-shared.sh for the build sequence.
+#
+# To regenerate this file from a running cluster:
+#   podman exec c1 /shared/pyenv/bin/pip freeze | grep -v '^qrmi' > requirements/pyenv-frozen.txt
+# =============================================================================
+
+annotated-types==0.7.0
+antlr4-python3-runtime==4.13.2
+astroid==3.2.4
+asttokens==3.0.1
+attrs==25.4.0
+auth0-python==3.24.1
+backoff==2.2.1
+black==25.12.0
+certifi==2026.1.4
+cffi==2.0.0
+charset-normalizer==3.4.4
+click==8.3.1
+contourpy==1.3.3
+cryptography==46.0.5
+cycler==0.12.1
+decorator==5.2.1
+dill==0.4.1
+executing==2.2.1
+ffsim==0.0.67
+fonttools==4.61.1
+h5py==3.15.1
+ibm-cloud-sdk-core==3.24.4
+ibm-platform-services==0.73.3
+idna==3.11
+importlib_metadata==8.7.1
+iniconfig==2.3.0
+ipython==9.10.0
+ipython_pygments_lexers==1.1.1
+isort==5.13.2
+jax==0.9.0.1
+jaxlib==0.9.0.1
+jedi==0.19.2
+jsonschema==4.26.0
+jsonschema-specifications==2025.9.1
+kiwisolver==1.4.9
+matplotlib==3.10.8
+matplotlib-inline==0.2.1
+maturin==1.12.2
+mccabe==0.7.0
+ml_dtypes==0.5.4
+mpi4py==4.1.1
+mypy_extensions==1.1.0
+numpy==2.3.0
+openqasm3==1.0.1
+opt_einsum==3.4.0
+orjson==3.11.7
+packaging==26.0
+parso==0.8.6
+pasqal-cloud==0.12.7
+patchelf==0.17.2.4
+pathspec==1.0.4
+pexpect==4.9.0
+pillow==12.1.1
+platformdirs==4.9.2
+pluggy==1.6.0
+prompt_toolkit==3.0.52
+ptyprocess==0.7.0
+pulser==1.6.6
+pulser-core==1.6.6
+pulser-pasqal==0.20.1
+pulser-simulation==1.6.6
+pure_eval==0.2.3
+pycparser==3.0
+pydantic==2.12.5
+pydantic_core==2.41.5
+Pygments==2.19.2
+PyJWT==2.11.0
+pylint==3.2.3
+pyparsing==3.3.2
+pyscf==2.12.1
+pyspnego==0.12.0
+pytest==9.0.2
+python-dateutil==2.9.0.post0
+python-dotenv==1.2.1
+pytokens==0.4.1
+qiskit==2.3.0
+qiskit-addon-sqd==0.12.1
+qiskit-ibm-runtime==0.45.1
+qiskit-qasm3-import==0.6.0
+qiskit_pasqal_provider==0.1.1
+qutip==5.2.3
+referencing==0.37.0
+requests==2.32.5
+requests_ntlm==1.3.0
+rpds-py==0.30.0
+rustworkx==0.17.1
+scipy==1.16.3
+setuptools==82.0.0
+six==1.17.0
+stack-data==0.6.3
+stevedore==5.7.0
+tokenize_rt==6.2.0
+tomlkit==0.14.0
+traitlets==5.14.3
+typing-inspection==0.4.2
+typing_extensions==4.15.0
+urllib3==2.6.3
+wcwidth==0.6.0
+zipp==3.23.0

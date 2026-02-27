@@ -1,0 +1,96 @@
+{
+  "_readme": [
+    "=============================================================================",
+    "QRMI Backend Configuration",
+    "=============================================================================",
+    "",
+    "This file defines the quantum backends available to your cluster.",
+    "Copy this file to qrmi_config.json and fill in your credentials.",
+    "qrmi_config.json is gitignored — never commit real credentials.",
+    "",
+    "ACCOUNT TYPES AND BACKEND ACCESS",
+    "---------------------------------",
+    "IBM Quantum offers two account tiers:",
+    "",
+    "  FREE (IBM Quantum Platform — Open Plan)",
+    "    - Access via: qiskit-runtime-service",
+    "    - Credentials needed: IAM API key + IQP instance CRN",
+    "    - Get your API key at: https://quantum.cloud.ibm.com",
+    "    - Backends available: shared simulators and limited real hardware",
+    "    - This is the most common starting point",
+    "",
+    "  PAID / RESERVED (IBM Quantum Direct Access)",
+    "    - Access via: direct-access",
+    "    - Requires a dedicated IBM Quantum contract",
+    "    - Credentials needed: IAM API key, CRN, AND AWS S3 credentials",
+    "    - S3 is used for job data transfer to/from the backend",
+    "    - NOT available on free or standard cloud accounts",
+    "",
+    "MULTIPLE BACKENDS",
+    "-----------------",
+    "You can define multiple backends of the same or different types.",
+    "Each gets a unique 'name' that you reference in your job scripts:",
+    "  service = QRMIService()",
+    "  resources = service.resources()   # lists all configured backends",
+    "  qrmi = resources[0]               # select by index or filter by name",
+    "",
+    "Remove any stanzas for backends you do not have access to.",
+    "============================================================================="
+  ],
+
+  "resources": [
+
+    {
+      "_comment": "--- OPTION 1: IBM Quantum Platform (free and paid accounts) ---",
+      "name": "ibm_backend_1",
+      "type": "qiskit-runtime-service",
+      "environment": {
+        "QRMI_IBM_QRS_ENDPOINT": "https://quantum.cloud.ibm.com/api/v1",
+        "QRMI_IBM_QRS_IAM_ENDPOINT": "https://iam.cloud.ibm.com",
+        "QRMI_IBM_QRS_IAM_APIKEY": "<YOUR IAM APIKEY>",
+        "QRMI_IBM_QRS_SERVICE_CRN": "<YOUR IQP INSTANCE CRN>"
+      }
+    },
+
+    {
+      "_comment": "--- OPTION 1b: Additional IBM Quantum Platform instance (same type, different backend/instance) ---",
+      "name": "ibm_backend_2",
+      "type": "qiskit-runtime-service",
+      "environment": {
+        "QRMI_IBM_QRS_ENDPOINT": "https://quantum.cloud.ibm.com/api/v1",
+        "QRMI_IBM_QRS_IAM_ENDPOINT": "https://iam.cloud.ibm.com",
+        "QRMI_IBM_QRS_IAM_APIKEY": "<YOUR IAM APIKEY>",
+        "QRMI_IBM_QRS_SERVICE_CRN": "<YOUR SECOND IQP INSTANCE CRN>"
+      }
+    },
+
+    {
+      "_comment": "--- OPTION 2: IBM Quantum Direct Access (reserved/paid contracts only) ---",
+      "_comment2": "Remove this stanza entirely if you have a free or standard account.",
+      "name": "ibm_direct_backend",
+      "type": "direct-access",
+      "environment": {
+        "QRMI_IBM_DA_ENDPOINT": "<YOUR DIRECT ACCESS ENDPOINT URL>",
+        "QRMI_IBM_DA_IAM_ENDPOINT": "<YOUR IAM ENDPOINT URL>",
+        "QRMI_IBM_DA_IAM_APIKEY": "<YOUR IAM APIKEY FOR THIS BACKEND>",
+        "QRMI_IBM_DA_SERVICE_CRN": "<YOUR DIRECT ACCESS INSTANCE CRN>",
+        "QRMI_IBM_DA_AWS_ACCESS_KEY_ID": "<YOUR AWS ACCESS KEY TO ACCESS S3 BUCKET>",
+        "QRMI_IBM_DA_AWS_SECRET_ACCESS_KEY": "<YOUR AWS SECRET ACCESS KEY TO ACCESS S3 BUCKET>",
+        "QRMI_IBM_DA_S3_ENDPOINT": "<YOUR S3 ENDPOINT>",
+        "QRMI_IBM_DA_S3_BUCKET": "<YOUR S3 BUCKET NAME>",
+        "QRMI_IBM_DA_S3_REGION": "<YOUR S3 BUCKET REGION>"
+      }
+    },
+
+    {
+      "_comment": "--- OPTION 3: Pasqal Cloud (neutral atom backend) ---",
+      "_comment2": "Remove this stanza if you do not have a Pasqal account.",
+      "name": "pasqal_backend",
+      "type": "pasqal-cloud",
+      "environment": {
+        "QRMI_PASQAL_CLOUD_ENDPOINT": "<YOUR PASQAL CLOUD ENDPOINT URL>"
+      }
+    }
+
+  ]
+}

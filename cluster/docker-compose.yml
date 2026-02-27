@@ -1,0 +1,171 @@
+# =============================================================================
+# slurm-qiskit-cluster — docker-compose.yml
+#
+# Build context is the repo root so both cluster/ and requirements/ are
+# accessible during the image build.
+#
+# Node roles:
+#   mysql       MariaDB — backend for slurmdbd accounting
+#   slurmdbd    Slurm database daemon
+#   slurmctld   Slurm controller (login node, job submission)
+#   c1, c2      General compute nodes
+#   q1          IBM Quantum / QRMI execution node
+#   g1          GPU postprocessing node (requires NVIDIA GPU)
+#
+# /shared is bind-mounted into all compute nodes. It must be populated
+# by the builder container before starting the cluster:
+#   ./setup/02-build-shared.sh
+# =============================================================================
+
+version: "3.8"
+
+x-build-common: &build-common
+  context: .
+  dockerfile: cluster/Dockerfile
+  args:
+    SLURM_TAG:       ${SLURM_TAG}
+    GOSU_VERSION:    ${GOSU_VERSION:-1.17}
+    MY_PMIX_VERSION: ${MY_PMIX_VERSION:-4.2.9}
+    OPENMPI_VERSION: ${OPENMPI_VERSION:-4.1.6}
+
+x-compute-common: &compute-common
+  volumes:
+    - shared:/shared
+    - etc_munge:/etc/munge
+    - etc_slurm:/etc/slurm
+    - slurm_jobdir:/data
+    - var_log_slurm:/var/log/slurm
+  depends_on:
+    - slurmctld
+  restart: unless-stopped
+
+services:
+
+  # ── Database ────────────────────────────────────────────────────────────────
+  mysql:
+    image: mariadb:10.10
+    hostname: mysql
+    container_name: mysql
+    environment:
+      MYSQL_RANDOM_ROOT_PASSWORD: "yes"
+      MYSQL_DATABASE: slurm_acct_db
+      MYSQL_USER: slurm
+      MYSQL_PASSWORD: password
+    volumes:
+      - var_lib_mysql:/var/lib/mysql
+    restart: unless-stopped
+
+  # ── Slurm database daemon ────────────────────────────────────────────────────
+  slurmdbd:
+    build:
+      <<: *build-common
+      target: control
+    image: slurm-qiskit-control:${IMAGE_TAG:-latest}
+    hostname: slurmdbd
+    container_name: slurmdbd
+    command: slurmdbd
+    volumes:
+      - etc_munge:/etc/munge
+      - etc_slurm:/etc/slurm
+      - var_log_slurm:/var/log/slurm
+    depends_on:
+      - mysql
+    restart: unless-stopped
+
+  # ── Slurm controller / login node ───────────────────────────────────────────
+  slurmctld:
+    build:
+      <<: *build-common
+      target: control
+    image: slurm-qiskit-control:${IMAGE_TAG:-latest}
+    hostname: slurmctld
+    container_name: slurmctld
+    command: slurmctld
+    volumes:
+      - etc_munge:/etc/munge
+      - etc_slurm:/etc/slurm
+      - slurm_jobdir:/data
+      - var_log_slurm:/var/log/slurm
+    depends_on:
+      - slurmdbd
+    restart: unless-stopped
+
+  # ── General compute nodes ────────────────────────────────────────────────────
+  c1:
+    build:
+      <<: *build-common
+      target: compute-base
+    image: slurm-qiskit-compute:${IMAGE_TAG:-latest}
+    hostname: c1
+    container_name: c1
+    command: slurmd
+    <<: *compute-common
+
+  c2:
+    build:
+      <<: *build-common
+      target: compute-base
+    image: slurm-qiskit-compute:${IMAGE_TAG:-latest}
+    hostname: c2
+    container_name: c2
+    command: slurmd
+    <<: *compute-common
+
+  # ── Quantum execution node ───────────────────────────────────────────────────
+  # Runs QRMI jobs against IBM Quantum / Pasqal backends.
+  # SPANK plugin (spank_qrmi.so) loads from /shared via plugstack.conf.
+  # All quantum Python packages come from /shared/pyenv.
+  q1:
+    build:
+      <<: *build-common
+      target: quantum
+    image: slurm-qiskit-quantum:${IMAGE_TAG:-latest}
+    hostname: q1
+    container_name: q1
+    command: slurmd
+    <<: *compute-common
+
+  # ── GPU postprocessing node ──────────────────────────────────────────────────
+  # Requires NVIDIA GPU with drivers installed on the host.
+  # WSL2: /usr/lib/wsl/lib is bind-mounted for NVIDIA userspace libs.
+  # Remove or comment out this service if you have no GPU.
+  g1:
+    build:
+      <<: *build-common
+      target: gpu
+      args:
+        CUDA_VERSION: ${CUDA_VERSION:-12-9}
+    image: slurm-qiskit-gpu:${IMAGE_TAG:-latest}
+    hostname: g1
+    container_name: g1
+    command: slurmd
+    volumes:
+      - shared:/shared
+      - etc_munge:/etc/munge
+      - etc_slurm:/etc/slurm
+      - slurm_jobdir:/data
+      - var_log_slurm:/var/log/slurm
+      - /usr/lib/wsl/lib:/usr/lib/wsl/lib:ro
+    devices:
+      - /dev/dxg
+    depends_on:
+      - slurmctld
+    restart: unless-stopped
+
+# =============================================================================
+# Volumes
+# =============================================================================
+volumes:
+  # Bind mount — host ./shared directory, pre-populated by builder container
+  shared:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${PWD}/shared
+
+  etc_munge:
+  etc_slurm:
+  slurm_jobdir:
+  var_log_slurm:
+  var_lib_mysql:
