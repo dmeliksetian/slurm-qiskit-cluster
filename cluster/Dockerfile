@@ -153,6 +153,7 @@ RUN set -x \
     && install -D -m644 etc/slurmdbd.conf.example /etc/slurm/slurmdbd.conf.example \
     && install -D -m644 contribs/slurm_completion_help/slurm_completion.sh \
        /etc/profile.d/slurm_completion.sh \
+    && rm -f /etc/profile.d/slurm_completion.sh \
     && popd \
     && rm -rf slurm \
     && groupadd -r --gid=990 slurm \
@@ -216,18 +217,18 @@ RUN /usr/local/bin/ompi_info | grep -E "(slurm|pmi)" | head -10 || true
 # Build context is ./cluster/ so paths are relative to that directory.
 # qrmi_config.json is generated from qrmi_config.json.example by
 # setup/03-configure-credentials.sh — never commit real credentials.
-COPY config/slurm.conf          /etc/slurm/slurm.conf
-COPY config/gres.conf           /etc/slurm/gres.conf
-COPY config/task_prolog.sh      /etc/slurm/task_prolog.sh
-COPY config/slurmdbd.conf       /etc/slurm/slurmdbd.conf
-COPY config/cgroup.conf         /etc/slurm/cgroup.conf
-COPY config/plugstack.conf      /etc/slurm/plugstack.conf
-COPY config/qrmi_config.json    /etc/slurm/qrmi_config.json
+COPY cluster/config/slurm.conf          /etc/slurm/slurm.conf
+COPY cluster/config/gres.conf           /etc/slurm/gres.conf
+COPY cluster/config/task_prolog.sh      /etc/slurm/task_prolog.sh
+COPY cluster/config/slurmdbd.conf       /etc/slurm/slurmdbd.conf
+COPY cluster/config/cgroup.conf         /etc/slurm/cgroup.conf
+COPY cluster/config/plugstack.conf      /etc/slurm/plugstack.conf
+COPY cluster/config/qrmi_config.json    /etc/slurm/qrmi_config.json
 
 RUN chown slurm:slurm /etc/slurm/slurmdbd.conf \
     && chmod 600 /etc/slurm/slurmdbd.conf
 
-COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+COPY cluster/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 
@@ -266,8 +267,8 @@ RUN pip3.12 install maturin==1.12.2 build
 # ── Copy requirements and build script into image ─────────────────────────────
 # Build context is ./cluster/ — requirements/ is one level up, so we copy
 # it into the image explicitly rather than relying on relative COPY paths.
-COPY ../requirements/pyenv-frozen.txt /build/pyenv-frozen.txt
-COPY build-all.sh                     /build/build-all.sh
+COPY requirements/pyenv-frozen.txt    /build/pyenv-frozen.txt
+COPY cluster/build-all.sh             /build/build-all.sh
 RUN chmod +x /build/build-all.sh
 
 CMD ["/build/build-all.sh"]
@@ -337,9 +338,6 @@ RUN echo "/usr/lib/wsl/lib" > /etc/ld.so.conf.d/wsl-nvidia.conf && ldconfig || t
        >> /etc/profile.d/wsl-nvidia.sh \
     && chmod +x /etc/profile.d/wsl-nvidia.sh \
     && echo "export LD_LIBRARY_PATH=/usr/lib/wsl/lib:\$LD_LIBRARY_PATH" >> /etc/bashrc
-
-# ── CuPy ─────────────────────────────────────────────────────────────────────
-RUN pip3.12 install cupy-cuda12x
 
 # ── Dice system dependencies ──────────────────────────────────────────────────
 RUN yum -y install epel-release \

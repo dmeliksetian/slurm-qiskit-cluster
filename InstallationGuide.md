@@ -89,14 +89,6 @@ ls /dev/dxg
 If this file is missing, your WSL2 kernel or Windows NVIDIA driver needs updating. See:
 https://docs.microsoft.com/en-us/windows/ai/directml/gpu-cuda-in-wsl
 
-### 3. Allow Podman to access /dev/dxg
-
-```bash
-# Add to /etc/containers/containers.conf inside WSL2
-[containers]
-devices = ["/dev/dxg"]
-```
-
 ---
 
 ## Clone the repository
@@ -210,6 +202,37 @@ To force a full rebuild without layer cache:
 
 ```bash
 ./setup/01-build-images.sh --no-cache
+```
+
+---
+
+## WSL2: Allow Podman to access /dev/dxg (GPU only)
+
+**This step is required only if you have an NVIDIA GPU on WSL2 and want to use the g1 node. It must be done after running `01-build-images.sh`** because that step populates `/etc/containers/containers.conf`.
+
+Edit the file:
+
+```bash
+sudo vi /etc/containers/containers.conf
+```
+
+Find the existing `[containers]` section — do not add a new one — and add the `devices` line inside it:
+
+```toml
+[containers]
+devices = ["/dev/dxg"]
+```
+
+If a `devices` line already exists in that section, add `/dev/dxg` to it:
+
+```toml
+devices = ["/dev/dxg", "/dev/other-device"]
+```
+
+Verify the file parses correctly:
+
+```bash
+podman info > /dev/null && echo "OK"
 ```
 
 ---

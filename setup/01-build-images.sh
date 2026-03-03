@@ -50,7 +50,7 @@ fi
 
 info "SLURM_TAG:    $SLURM_TAG"
 info "IMAGE_TAG:    $IMAGE_TAG"
-info "Build context: $CLUSTER_DIR"
+info "Build context: $REPO_ROOT"
 [[ -n "$NO_CACHE" ]] && warn "Cache disabled (--no-cache)"
 echo ""
 
@@ -72,7 +72,8 @@ podman build $NO_CACHE \
     --build-arg GOSU_VERSION="${GOSU_VERSION:-1.17}" \
     --build-arg MY_PMIX_VERSION="${MY_PMIX_VERSION:-4.2.9}" \
     --build-arg OPENMPI_VERSION="${OPENMPI_VERSION:-4.1.6}" \
-    "$CLUSTER_DIR"
+    --file "$CLUSTER_DIR/Dockerfile" \
+    "$REPO_ROOT"
 success "builder image built"
 
 # ── Build runtime images via compose ─────────────────────────────────────────
@@ -80,7 +81,12 @@ info "Building cluster images (control, compute-base, quantum, gpu, quantum-gpu)
 info "Note: gpu and quantum-gpu stages are large — this may take 10-20 minutes"
 echo ""
 
-(cd "$REPO_ROOT" && podman compose build $NO_CACHE)
+(cd "$CLUSTER_DIR" && podman compose --env-file "$ENV_FILE" build \
+    --build-arg SLURM_TAG="${SLURM_TAG}" \
+    --build-arg GOSU_VERSION="${GOSU_VERSION:-1.17}" \
+    --build-arg MY_PMIX_VERSION="${MY_PMIX_VERSION:-4.2.9}" \
+    --build-arg OPENMPI_VERSION="${OPENMPI_VERSION:-4.1.6}" \
+    $NO_CACHE)
 
 success "All images built"
 echo ""

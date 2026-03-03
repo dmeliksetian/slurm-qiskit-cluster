@@ -4,8 +4,8 @@ set -e
 if [ "$1" = "slurmdbd" ]
 then
     echo "---> Starting the MUNGE Authentication service (munged) ..."
+    chown munge:munge /run/munge /var/run/munge /var/log/munge 2>/dev/null || true
     gosu munge /usr/sbin/munged
-
     echo "---> Starting the Slurm Database Daemon (slurmdbd) ..."
 
     {
@@ -24,7 +24,8 @@ fi
 if [ "$1" = "slurmctld" ]
 then
     echo "---> Starting the MUNGE Authentication service (munged) ..."
-    gosu munge /usr/sbin/munged
+    chown munge:munge /run/munge /var/run/munge /var/log/munge 2>/dev/null || true
+    gosu munge /usr/sbin/munged    
 
     echo "---> Waiting for slurmdbd to become active before starting slurmctld ..."
 
@@ -46,7 +47,8 @@ fi
 if [ "$1" = "slurmd" ]
 then
     echo "---> Starting the MUNGE Authentication service (munged) ..."
-    gosu munge /usr/sbin/munged
+    chown munge:munge /run/munge /var/run/munge /var/log/munge 2>/dev/null || true
+    gosu munge /usr/sbin/munged    
 
     echo "---> Waiting for slurmctld to become active before starting slurmd..."
 
@@ -64,6 +66,7 @@ fi
 if [ "$1" = "login" ]
 then
     echo "---> Starting the MUNGE Authentication service (munged) ..."
+    chown munge:munge /run/munge /var/run/munge /var/log/munge 2>/dev/null || true
     gosu munge /usr/sbin/munged
     exec tail -f /dev/null
 fi

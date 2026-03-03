@@ -1,0 +1,42 @@
+# =============================================================================
+# slurm-qiskit-cluster .gitignore
+# =============================================================================
+
+# Credentials — never commit
+cluster/config/qrmi_config.json
+
+# Shared volume contents — built at runtime, not tracked
+shared/pyenv/
+shared/data/
+
+# QRMI build artifacts
+shared/qrmi/target/
+
+# SPANK plugin build artifacts
+shared/spank-plugins/plugins/spank_qrmi/build/
+
+# Environment file
+.env
+session-context.md
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+*.whl
+
+# Editor and OS
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Podman / Docker
+*.tar

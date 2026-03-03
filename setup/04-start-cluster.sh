@@ -8,10 +8,10 @@
 #   ./setup/04-start-cluster.sh
 #
 # To stop the cluster:
-#   podman compose down
+#   podman compose -f "$CLUSTER_DIR/docker-compose.yml" down
 #
 # To view logs:
-#   podman compose logs -f
+#   podman compose -f "$CLUSTER_DIR/docker-compose.yml" logs -f
 #   podman logs -f slurmctld
 # =============================================================================
 
@@ -19,7 +19,9 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+CLUSTER_DIR="$REPO_ROOT/cluster"
 SHARED_DIR="$REPO_ROOT/shared"
+ENV_FILE="$REPO_ROOT/.env"
 
 # ── Colours ───────────────────────────────────────────────────────────────────
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'
@@ -56,7 +58,7 @@ echo ""
 
 # ── Start cluster ─────────────────────────────────────────────────────────────
 info "Starting cluster ..."
-(cd "$REPO_ROOT" && podman compose up -d)
+(cd "$CLUSTER_DIR" && podman compose --env-file "$ENV_FILE" up -d)
 echo ""
 
 # ── Wait for slurmctld ────────────────────────────────────────────────────────
@@ -90,14 +92,14 @@ echo ""
 
 # ── Running containers ────────────────────────────────────────────────────────
 echo -e "${BOLD}Running containers:${NC}"
-podman compose ps
+podman compose -f "$CLUSTER_DIR/docker-compose.yml" ps
 echo ""
 
 success "Cluster is up"
 echo ""
 echo "  Login to a node:    podman exec -it c1 bash"
-echo "  View logs:          podman compose logs -f"
-echo "  Stop cluster:       podman compose down"
+echo "  View logs:          podman compose -f "$CLUSTER_DIR/docker-compose.yml" logs -f"
+echo "  Stop cluster:       podman compose -f "$CLUSTER_DIR/docker-compose.yml" down"
 echo ""
 echo -e "Next step: ${CYAN}./setup/05-verify.sh${NC}"
 echo ""

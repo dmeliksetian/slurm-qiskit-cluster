@@ -33,13 +33,16 @@ die()     { echo -e "${RED}[error]${NC} $*" >&2; exit 1; }
 
 # ── Parse arguments ───────────────────────────────────────────────────────────
 FORCE=0
+GPU=0
+PACKAGES_ONLY=0
 for arg in "$@"; do
     case $arg in
-        --force) FORCE=1 ;;
+        --force)         FORCE=1         ;;
+        --gpu)           GPU=1           ;;
+        --packages-only) PACKAGES_ONLY=1 ;;
         *) die "Unknown argument: $arg" ;;
     esac
 done
-
 # ── Load .env ─────────────────────────────────────────────────────────────────
 if [[ -f "$ENV_FILE" ]]; then
     set -a; source "$ENV_FILE"; set +a
@@ -96,6 +99,8 @@ echo ""
 podman run --rm \
     --name slurm-qiskit-builder-run \
     -v "$SHARED_DIR:/shared:z" \
+    -e INSTALL_GPU_PACKAGES="${GPU}" \
+    -e PACKAGES_ONLY="${PACKAGES_ONLY}" \
     "slurm-qiskit-builder:${IMAGE_TAG}"
 
 # ── Verify outputs ────────────────────────────────────────────────────────────

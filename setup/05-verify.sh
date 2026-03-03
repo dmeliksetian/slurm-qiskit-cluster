@@ -53,7 +53,7 @@ echo "======================================"
 # ── Helper: run command in container ─────────────────────────────────────────
 run_in() {
     local container=$1; shift
-    podman exec "$container" bash -lc "$*" 2>&1
+    podman exec "$container" bash -c "source /shared/pyenv/bin/activate 2>/dev/null; $*" 2>&1
 }
 
 # ── Helper: submit a batch job and wait for result ────────────────────────────
@@ -129,7 +129,7 @@ else
 fi
 
 # Check SPANK plugin
-if run_in slurmctld "sbatch --help 2>&1 | grep -q 'qpu'"; then
+if podman exec q1 sbatch --help 2>&1 | grep -q -- '--qpu'; then    
     pass "SPANK plugin loaded (--qpu option visible in sbatch --help)"
 else
     fail "SPANK plugin not loaded — check plugstack.conf and spank_qrmi.so"
@@ -190,7 +190,7 @@ qc.measure([0,1], [0,1])
 sampler = StatevectorSampler()
 job = sampler.run([qc], shots=100)
 result = job.result()
-counts = result[0].data.meas.get_counts()
+counts = result[0].data.c.get_counts()
 print("counts:", counts)
 assert set(counts.keys()).issubset({"00", "11"}), f"Unexpected counts: {counts}"
 print("PASS")
@@ -208,18 +208,28 @@ fi
 # =============================================================================
 # TEST 6 — Slurm batch job (c1)
 # =============================================================================
+# TEST 6 — Slurm batch job
 section "Slurm batch job"
 
-BATCH_SCRIPT="python3 -c 'import qiskit; print(qiskit.__version__)'"
-JOB_OUTPUT=$(submit_and_wait "slurmctld" "$BATCH_SCRIPT" "verify-qiskit" 30)
+JOB_ID=$(podman exec slurmctld bash -c "sbatch --job-name=verify-qiskit --output=/tmp/verify-qiskit-%j.out --wrap='python3 -c \"import qiskit; print(qiskit.__version__)\"'" 2>/dev/null | grep -oP '(?<=Submitted batch job )\d+')
 
-if echo "$JOB_OUTPUT" | grep -qP '^\d+\.\d+'; then
-    pass "Batch job completed — qiskit $(echo $JOB_OUTPUT | tr -d '\n')"
+if [[ -z "$JOB_ID" ]]; then
+    fail "sbatch submission failed"
 else
-    fail "Batch job did not produce expected output"
-    info "$JOB_OUTPUT"
+    pass "Job $JOB_ID submitted"
+    # Wait up to 30s
+    for i in $(seq 1 15); do
+        sleep 2
+        STATE=$(podman exec slurmctld bash -c "squeue -j $JOB_ID -h -o %T 2>/dev/null")
+        [[ -z "$STATE" ]] && break
+    done
+    OUT=$(podman exec c1 bash -c "cat /tmp/verify-qiskit-${JOB_ID}.out 2>/dev/null || true")
+    if echo "$OUT" | grep -qP '^\d+\.\d+'; then
+        pass "Batch job completed — qiskit $OUT"
+    else
+        fail "Batch job output unexpected: $OUT"
+    fi
 fi
-
 # =============================================================================
 # TEST 7 — GPU (optional)
 # =============================================================================
@@ -246,28 +256,38 @@ fi
 if [[ "$TEST_QRMI" -eq 1 ]]; then
     section "QRMI connectivity"
 
-    QRMI_TEST='
+    QRMI_SCRIPT="source /shared/pyenv/bin/activate && python3 -c '
 from qrmi.primitives import QRMIService
 service = QRMIService()
 resources = service.resources()
-print(f"Backends found: {len(resources)}")
+print(f\"Backends found: {len(resources)}\")
 for r in resources:
-    print(f"  - {r.name} ({r.backend_type})")
-print("PASS")
-'
-    QRMI_OUTPUT=$(run_in q1 "python3 -c '$QRMI_TEST'" 2>&1)
-    if echo "$QRMI_OUTPUT" | grep -q "PASS"; then
-        pass "QRMI service initialised successfully"
-        echo "$QRMI_OUTPUT" | grep -E "(Backends|  -)" | while read -r line; do
-            info "$line"
-        done
+    print(f\"  - {r.name}\")
+print(\"PASS\")
+'"
+
+    JOB_ID=$(podman exec slurmctld bash -c "sbatch --job-name=verify-qrmi --partition=quantum --qpu=ibm_torino --output=/tmp/verify-qrmi-%j.out --wrap='$QRMI_SCRIPT'" 2>/dev/null | grep -oP '(?<=Submitted batch job )\d+')
+
+    if [[ -z "$JOB_ID" ]]; then
+        fail "QRMI job submission failed"
     else
-        fail "QRMI service initialisation failed"
-        info "$QRMI_OUTPUT"
-        info "Check credentials in /etc/slurm/qrmi_config.json"
-        info "Check plugstack.conf on q1"
+        pass "QRMI job $JOB_ID submitted"
+        for i in $(seq 1 20); do
+            sleep 3
+            STATE=$(podman exec slurmctld bash -c "squeue -j $JOB_ID -h -o %T 2>/dev/null")
+            [[ -z "$STATE" ]] && break
+        done
+        OUT=$(podman exec q1 bash -c "cat /tmp/verify-qrmi-${JOB_ID}.out 2>/dev/null || true")
+        if echo "$OUT" | grep -q "PASS"; then
+            pass "QRMI service reachable via Slurm job"
+            echo "$OUT" | grep -E "Backends|  -" | while read -r line; do info "$line"; done
+        else
+            fail "QRMI job did not produce expected output"
+            info "$OUT"
+        fi
     fi
 fi
+
 
 # =============================================================================
 # Summary
@@ -282,7 +302,7 @@ if [[ "$FAIL" -gt 0 ]]; then
     echo -e "${RED}Some tests failed — review output above.${NC}"
     echo ""
     echo "  Useful commands:"
-    echo "    podman compose logs -f"
+    echo "    podman compose -f cluster/docker-compose.yml logs -f"
     echo "    podman exec -it c1 bash"
     echo "    podman exec -it q1 bash"
     exit 1

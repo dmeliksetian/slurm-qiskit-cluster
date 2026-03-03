@@ -20,7 +20,7 @@
 version: "3.8"
 
 x-build-common: &build-common
-  context: .
+  context: ..
   dockerfile: cluster/Dockerfile
   args:
     SLURM_TAG:       ${SLURM_TAG}
@@ -82,6 +82,7 @@ services:
     container_name: slurmctld
     command: slurmctld
     volumes:
+      - shared:/shared
       - etc_munge:/etc/munge
       - etc_slurm:/etc/slurm
       - slurm_jobdir:/data
@@ -148,6 +149,27 @@ services:
       - /usr/lib/wsl/lib:/usr/lib/wsl/lib:ro
     devices:
       - /dev/dxg
+      - nvidia.com/gpu=all
+    depends_on:
+      - slurmctld
+    restart: unless-stopped
+
+# ── Login node ───────────────────────────────────────────────────────────────
+  # Interactive job submission node. No slurmd — users exec in and run sbatch.
+  login:
+    build:
+      <<: *build-common
+      target: control
+    image: slurm-qiskit-control:${IMAGE_TAG:-latest}
+    hostname: login
+    container_name: login
+    command: bash /usr/local/bin/docker-entrypoint.sh login
+    volumes:
+      - shared:/shared
+      - etc_munge:/etc/munge
+      - etc_slurm:/etc/slurm
+      - slurm_jobdir:/data
+      - var_log_slurm:/var/log/slurm
     depends_on:
       - slurmctld
     restart: unless-stopped
@@ -162,7 +184,7 @@ volumes:
     driver_opts:
       type: none
       o: bind
-      device: ${PWD}/shared
+      device: ${PWD}/../shared
 
   etc_munge:
   etc_slurm:

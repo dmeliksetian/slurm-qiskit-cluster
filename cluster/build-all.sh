@@ -47,66 +47,84 @@ pip install --upgrade pip --quiet
 # ── Step 2: Install pinned packages ───────────────────────────────────────────
 info "Installing pinned packages from pyenv-frozen.txt ..."
 info "(this will take several minutes — pyscf, jax, ffsim are large)"
-pip install -r /build/requirements/pyenv-frozen.txt --quiet
+pip install -r /build/pyenv-frozen.txt 
 success "Pinned packages installed"
 
-# ── Step 3: Build qrmi wheel from source ─────────────────────────────────────
-info "Building qrmi wheel from source (/shared/qrmi) ..."
-
-# Activate Rust toolchain installed in base image
-source "$HOME/.cargo/env"
-
-cd /shared/qrmi
-
-# Install qrmi build dependencies
-if [[ -f requirements-dev.txt ]]; then
-    pip install -r requirements-dev.txt --quiet
+# ── Step 2b: Install GPU packages into pyenv ──────────────────────────────────
+if [[ "${INSTALL_GPU_PACKAGES:-0}" == "1" ]]; then
+    info "Installing GPU packages (cupy-cuda12x) ..."
+    pip install cupy-cuda12x==14.0.1 
+    success "GPU packages installed"
 fi
+# ── Step 3: Build qrmi wheel from source ─────────────────────────────────────
+if [[ "${PACKAGES_ONLY:-0}" == "1" ]]; then
+    info "Skipping qrmi and SPANK plugin build (--packages-only)"
+else
+    # ── Step 3: Build qrmi wheel from source ─────────────────────────────────────
+    info "Building qrmi wheel from source (/shared/qrmi) ..."
 
-# Build the wheel — release mode for performance
-maturin build --release
+    # Activate Rust toolchain installed in base image
+    source "$HOME/.cargo/env"
 
-# Find and install the built wheel
-WHEEL=$(find /shared/qrmi/target/wheels -name "qrmi-*.whl" | sort -V | tail -1)
-[[ -n "$WHEEL" ]] || die "No qrmi wheel found after build — check maturin output above"
+    cd /shared/qrmi
 
-info "Installing wheel: $(basename $WHEEL)"
-pip install "$WHEEL"
-success "qrmi installed: $(pip show qrmi | grep Version)"
+   # Install qrmi build dependencies
+   if [[ -f requirements-dev.txt ]]; then
+      pip install -r requirements-dev.txt --quiet
+   fi
 
-# ── Step 4: Build SPANK plugin ────────────────────────────────────────────────
-info "Building SPANK plugin (spank_qrmi.so) ..."
+   # Build the wheel — release mode for performance
+   maturin build --release
 
-cd "$SPANK_PLUGIN_DIR"
-mkdir -p build
-cd build
+  # Find and install the built wheel
+  WHEEL=$(find /shared/qrmi/target/wheels -name "qrmi-*.whl" | sort -V | tail -1)
+  [[ -n "$WHEEL" ]] || die "No qrmi wheel found after build — check maturin output above"
 
-# Build against the locally built qrmi source for ABI consistency
-cmake -DQRMI_ROOT=/shared/qrmi .. \
+  info "Installing wheel: $(basename $WHEEL)"
+  pip install "$WHEEL"
+  success "qrmi installed: $(pip show qrmi | grep Version)"
+
+  # ── Step 4: Build SPANK plugin ────────────────────────────────────────────────
+  info "Building SPANK plugin (spank_qrmi.so) ..."
+
+  cd "$SPANK_PLUGIN_DIR"
+  mkdir -p build
+  cd build
+
+  # Build against the locally built qrmi source for ABI consistency
+  cmake -DQRMI_ROOT=/shared/qrmi .. \
     -DCMAKE_BUILD_TYPE=Release \
     2>&1 | tail -5
 
-make -j$(nproc) 2>&1 | tail -10
+  make -j$(nproc) 2>&1 | tail -10
 
-SO_FILE="$SPANK_PLUGIN_DIR/build/spank_qrmi.so"
-[[ -f "$SO_FILE" ]] || die "spank_qrmi.so not found after build — check make output above"
+  SO_FILE="$SPANK_PLUGIN_DIR/build/spank_qrmi.so"
+  [[ -f "$SO_FILE" ]] || die "spank_qrmi.so not found after build — check make output above"
 
-success "SPANK plugin built: $SO_FILE"
+  success "SPANK plugin built: $SO_FILE"
+fi
 
 # ── Step 5: Verify ────────────────────────────────────────────────────────────
 info "Verifying build artifacts ..."
+
+SO_FILE="$SPANK_PLUGIN_DIR/build/spank_qrmi.so"   # ← move definition here
 
 echo ""
 echo "  /shared/pyenv:"
 echo "    qiskit:            $(pip show qiskit             | grep Version || echo NOT FOUND)"
 echo "    qrmi:              $(pip show qrmi               | grep Version || echo NOT FOUND)"
 echo "    qiskit-ibm-runtime:$(pip show qiskit-ibm-runtime | grep Version || echo NOT FOUND)"
-echo "    qiskit-addon-sqd:  $(pip show qiskit-addon-sqd   | grep Version || echo NOT FOUND)"
+echo "    qiskit-addon-sqd:  $(pip show qiskit-addon-sqd   | grep '^Version' || echo NOT FOUND)"
 echo "    ffsim:             $(pip show ffsim               | grep Version || echo NOT FOUND)"
 echo "    pyscf:             $(pip show pyscf               | grep Version || echo NOT FOUND)"
+echo "    cupy:              $(pip show cupy-cuda12x        | grep Version || echo NOT FOUND)"
 echo ""
-echo "  SPANK plugin:"
-echo "    $(ls -lh $SO_FILE)"
+if [[ -f "$SO_FILE" ]]; then
+    echo "  SPANK plugin:"
+    echo "    $(ls -lh $SO_FILE)"
+else
+    echo "  SPANK plugin: skipped (--packages-only)"
+fi
 echo ""
 
 success "Build complete — /shared is ready for cluster startup"
