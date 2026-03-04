@@ -31,13 +31,28 @@ Before starting, confirm you have the following on your host:
 - `podman compose`
 - Git 2.13 or later (submodule support)
 - 20 GB free disk space (images + shared pyenv are large)
-- NVIDIA GPU with drivers (optional — required only for g1 / qg1 nodes)
+- **NVIDIA GPU with CUDA support** (optional — required only for the `g1` and `qg1` nodes; see [GPU support](#gpu-support) below)
 
 Run the prerequisite check at any time:
 
 ```bash
 ./setup/00-check-prereqs.sh
 ```
+
+### GPU support
+
+GPU acceleration in this cluster is **optional**. The `c1`, `c2`, `q1`, and `login` nodes run without any GPU. Only the `g1` and `qg1` nodes require a GPU:
+
+- `g1` — GPU postprocessing node (CuPy, Dice eigensolver)
+- `qg1` — GPU-accelerated Aer simulation node (qiskit-aer-gpu)
+
+**Only NVIDIA GPUs with CUDA are supported.** AMD, Intel, and other GPU vendors are not currently supported. Specifically, this cluster has been tested with:
+
+- NVIDIA driver 576.40 or later
+- CUDA 12.9
+- CuPy 14.0.1 (`cupy-cuda12x`)
+
+If you do not have an NVIDIA GPU, simply omit all `--gpu` and `--quantum-gpu` flags throughout this guide. The `g1` and `qg1` containers will still start but GPU-dependent workloads will fail inside them. All other cluster functionality — Slurm scheduling, Qiskit simulation, QRMI/quantum access — works fully without a GPU.
 
 ---
 
@@ -67,9 +82,15 @@ Official Podman installation documentation: https://podman.io/docs/installation
 
 ## WSL2-specific setup
 
-If you are running on WSL2 with an NVIDIA GPU, you need the NVIDIA Container Toolkit and GPU passthrough configured before the g1 node will work.
+### Without a GPU
 
-### 1. Ensure WSL2 NVIDIA drivers are installed on Windows
+No additional setup is required. Proceed directly to [Clone the repository](#clone-the-repository).
+
+### With an NVIDIA GPU
+
+If you are running on WSL2 with an NVIDIA GPU and want to use the `g1` or `qg1` nodes, you need the NVIDIA Container Toolkit and GPU passthrough configured before those nodes will work.
+
+#### 1. Ensure WSL2 NVIDIA drivers are installed on Windows
 
 Install or update the NVIDIA driver on Windows (not inside WSL). The Windows driver provides `/usr/lib/wsl/lib` inside WSL2 automatically.
 
@@ -80,7 +101,7 @@ ls /usr/lib/wsl/lib/libcuda*
 # Should list libcuda.so and related files
 ```
 
-### 2. Verify /dev/dxg exists
+#### 2. Verify /dev/dxg exists
 
 ```bash
 ls /dev/dxg
@@ -137,7 +158,7 @@ GOSU_VERSION=1.17
 MY_PMIX_VERSION=4.2.9
 OPENMPI_VERSION=4.1.6
 
-# CUDA version (gpu and quantum-gpu stages only)
+# CUDA version (gpu and quantum-gpu stages only — NVIDIA CUDA required)
 CUDA_VERSION=12-9
 ```
 
@@ -186,6 +207,13 @@ You can define multiple backends of the same type (e.g. three `qiskit-runtime-se
 
 After editing, the script will warn you if any `<YOUR ...>` placeholders remain unfilled.
 
+After the cluster is started, the config file must also be copied into the running containers:
+
+```bash
+podman cp cluster/config/qrmi_config.json slurmctld:/etc/slurm/qrmi_config.json
+podman cp cluster/config/qrmi_config.json q1:/etc/slurm/qrmi_config.json
+```
+
 ---
 
 ## Build the images
@@ -206,9 +234,11 @@ To force a full rebuild without layer cache:
 
 ---
 
-## WSL2: Allow Podman to access /dev/dxg (GPU only)
+## WSL2: Allow Podman to access /dev/dxg (NVIDIA GPU only)
 
-**This step is required only if you have an NVIDIA GPU on WSL2 and want to use the g1 node. It must be done after running `01-build-images.sh`** because that step populates `/etc/containers/containers.conf`.
+> **Skip this section if you do not have an NVIDIA GPU.**
+
+This step is required only if you have an NVIDIA GPU on WSL2 and want to use the `g1` or `qg1` nodes. It must be done after running `01-build-images.sh` because that step populates `/etc/containers/containers.conf`.
 
 Edit the file:
 
@@ -243,17 +273,47 @@ The builder container populates `./shared` with:
 - `/shared/pyenv` — the full quantum Python virtual environment
 - `/shared/spank-plugins/plugins/spank_qrmi/build/spank_qrmi.so` — the SPANK plugin
 
+### Without a GPU
+
 ```bash
 ./setup/02-build-shared.sh
 ```
+
+### With an NVIDIA GPU (CUDA)
+
+Pass `--gpu` to install CuPy (for `g1`), `--quantum-gpu` to install qiskit-aer-gpu (for `qg1`), or both:
+
+```bash
+./setup/02-build-shared.sh --gpu                    # g1 only
+./setup/02-build-shared.sh --quantum-gpu            # qg1 only
+./setup/02-build-shared.sh --gpu --quantum-gpu      # both
+```
+
+CuPy (`cupy-cuda12x==14.0.1`) and qiskit-aer-gpu are installed into `/shared/pyenv` rather than baked into the images. They are present on all nodes but only functional on `g1` and `qg1` respectively, where the GPU and CUDA libraries are available. **AMD, Intel, and other GPU vendors are not supported — both packages require NVIDIA CUDA.**
 
 Expected time: 10–20 minutes (pyscf, jax, and ffsim are large packages).
 
 The build is skipped if `/shared/pyenv` already exists. To force a rebuild:
 
 ```bash
-./setup/02-build-shared.sh --force
+./setup/02-build-shared.sh --force                       # no GPU
+./setup/02-build-shared.sh --force --gpu                 # with CuPy (g1)
+./setup/02-build-shared.sh --force --quantum-gpu         # with qiskit-aer-gpu (qg1)
+./setup/02-build-shared.sh --force --gpu --quantum-gpu   # both
 ```
+
+### Available flags
+
+| Command | Effect |
+|---|---|
+| `./setup/02-build-shared.sh` | Full build, no GPU packages |
+| `./setup/02-build-shared.sh --gpu` | Full build + CuPy for `g1` (NVIDIA CUDA only) |
+| `./setup/02-build-shared.sh --quantum-gpu` | Full build + qiskit-aer-gpu for `qg1` (NVIDIA CUDA only) |
+| `./setup/02-build-shared.sh --gpu --quantum-gpu` | Full build + CuPy + qiskit-aer-gpu |
+| `./setup/02-build-shared.sh --packages-only` | pip packages only, skip qrmi + SPANK plugin build |
+| `./setup/02-build-shared.sh --packages-only --gpu` | pip packages + CuPy, skip qrmi + SPANK plugin build |
+| `./setup/02-build-shared.sh --packages-only --quantum-gpu` | pip packages + qiskit-aer-gpu, skip qrmi + SPANK plugin build |
+| `./setup/02-build-shared.sh --force --gpu --quantum-gpu` | Full rebuild from scratch + CuPy + qiskit-aer-gpu |
 
 ### What gets installed in /shared/pyenv
 
@@ -262,7 +322,7 @@ The full pinned package list is in `requirements/pyenv-frozen.txt`. Key packages
 | Package | Version | Purpose |
 |---|---|---|
 | qiskit | 2.3.0 | Quantum circuit building and transpilation |
-| qrmi | 0.10.1 | Quantum Resource Management Interface (Rust extension, built from source) |
+| qrmi | 0.11.0 | Quantum Resource Management Interface (Rust extension, built from source) |
 | qiskit-ibm-runtime | 0.45.1 | IBM Quantum backend access |
 | qiskit-addon-sqd | 0.12.1 | Sample-based quantum diagonalization |
 | ffsim | 0.0.67 | Fast fermionic simulation |
@@ -270,6 +330,8 @@ The full pinned package list is in `requirements/pyenv-frozen.txt`. Key packages
 | jax / jaxlib | 0.9.0.1 | Accelerated numerical computing |
 | pulser | 1.6.6 | Pasqal neutral atom support |
 | mpi4py | 4.1.1 | MPI Python bindings |
+| cupy-cuda12x | 14.0.1 | GPU computing via CUDA (**NVIDIA only**, installed with `--gpu`) |
+| qiskit-aer-gpu | latest | GPU-accelerated Aer simulation (**NVIDIA only**, installed with `--quantum-gpu`) |
 
 ---
 
@@ -280,6 +342,8 @@ The full pinned package list is in `requirements/pyenv-frozen.txt`. Key packages
 ```
 
 The script runs pre-flight checks (pyenv, SPANK plugin, credentials) before starting the cluster and waits for `slurmctld` to become ready. It then prints the cluster node state and confirms the SPANK `--qpu` option is visible.
+
+The cluster includes a `login` node (uses the control image) that provides a persistent entry point for interactive use.
 
 To stop the cluster:
 
@@ -299,10 +363,10 @@ podman logs -f slurmctld
 ## Verify the installation
 
 ```bash
-# Basic verification (no GPU or credentials required)
+# Basic verification — no GPU or credentials required
 ./setup/05-verify.sh
 
-# Include GPU tests (requires g1 with NVIDIA GPU)
+# Include GPU tests (requires g1 and/or qg1 with NVIDIA CUDA GPU)
 ./setup/05-verify.sh --gpu
 
 # Include QRMI connectivity test (requires valid credentials and network access)
@@ -314,6 +378,8 @@ podman logs -f slurmctld
 
 A passing run confirms: containers up, Slurm responding, SPANK plugin loaded, `/shared/pyenv` mounted and importable on all nodes, Qiskit Bell state circuit executes correctly, and batch job submission works end to end.
 
+> **Note:** The `--qrmi` test submits a real Slurm job to the `quantum` partition using `--qpu`. It requires valid credentials in `/etc/slurm/qrmi_config.json` on both `slurmctld` and `q1`, and an IBM Quantum instance with available compute time. A successful connection but empty backend list typically indicates your instance quota is exhausted, not a configuration error.
+
 ---
 
 ## Updating packages
@@ -321,8 +387,26 @@ A passing run confirms: containers up, Slurm responding, SPANK plugin loaded, `/
 Because the quantum stack lives in `/shared/pyenv` on the host rather than baked into the images, you can update packages without rebuilding any images:
 
 ```bash
-# Rebuild /shared/pyenv with updated packages
+# Rebuild /shared/pyenv with updated packages (no GPU)
 ./setup/02-build-shared.sh --force
+
+# Rebuild with CuPy (g1)
+./setup/02-build-shared.sh --force --gpu
+
+# Rebuild with qiskit-aer-gpu (qg1)
+./setup/02-build-shared.sh --force --quantum-gpu
+
+# Rebuild with both
+./setup/02-build-shared.sh --force --gpu --quantum-gpu
+```
+
+To update only pip packages without rebuilding qrmi and the SPANK plugin (much faster):
+
+```bash
+./setup/02-build-shared.sh --packages-only
+./setup/02-build-shared.sh --packages-only --gpu              # include CuPy
+./setup/02-build-shared.sh --packages-only --quantum-gpu      # include qiskit-aer-gpu
+./setup/02-build-shared.sh --packages-only --gpu --quantum-gpu
 ```
 
 Then restart the cluster:
@@ -332,6 +416,12 @@ podman compose -f cluster/docker-compose.yml restart
 ```
 
 To update pinned versions, edit `requirements/pyenv-frozen.txt` before running `--force`.
+
+To regenerate the lockfile from the current environment:
+
+```bash
+podman exec c1 /shared/pyenv/bin/pip freeze | grep -v '^qrmi' > requirements/pyenv-frozen.txt
+```
 
 ---
 
@@ -351,8 +441,8 @@ The most common cause is slurmdbd failing to connect to MySQL before slurmctld s
 
 The SPANK plugin failed to load. Check:
 ```bash
-podman exec q1 bash -lc "ls -lh /shared/spank-plugins/plugins/spank_qrmi/build/spank_qrmi.so"
-podman exec q1 bash -lc "cat /etc/slurm/plugstack.conf"
+podman exec q1 bash -c "ls -lh /shared/spank-plugins/plugins/spank_qrmi/build/spank_qrmi.so"
+podman exec q1 bash -c "cat /etc/slurm/plugstack.conf"
 ```
 
 If the `.so` is missing, run `./setup/02-build-shared.sh --force`.
@@ -360,18 +450,30 @@ If the `.so` is missing, run `./setup/02-build-shared.sh --force`.
 **qrmi import fails on q1**
 
 ```bash
-podman exec q1 bash -lc "python3 -c 'import qrmi'"
+podman exec q1 bash -c "source /shared/pyenv/bin/activate && python3 -c 'import qrmi'"
 ```
 
 If you see a Rust/ABI error, the qrmi wheel was built against a different system ABI. Run `./setup/02-build-shared.sh --force` to rebuild the wheel inside the builder container.
 
-**GPU not detected on g1**
+**GPU not detected on g1 or qg1**
+
+> This requires an NVIDIA GPU with CUDA. AMD and Intel GPUs are not supported.
 
 ```bash
-podman exec g1 bash -lc "python3 -c 'import cupy; print(cupy.cuda.runtime.getDeviceCount())'"
+# Test CuPy on g1
+podman exec g1 bash -c "source /shared/pyenv/bin/activate && python3 -c 'import cupy; print(cupy.cuda.runtime.getDeviceCount())'"
+
+# Test qiskit-aer-gpu on qg1
+podman exec qg1 bash -c "source /shared/pyenv/bin/activate && python3 -c 'from qiskit_aer import AerSimulator; print(AerSimulator.from_backend.__doc__)'"
 ```
 
-On WSL2, verify `/usr/lib/wsl/lib` is bind-mounted and `/dev/dxg` exists on the host.
+On WSL2, verify `/usr/lib/wsl/lib` is bind-mounted and `/dev/dxg` exists on the host. Also confirm that `nvidia.com/gpu=all` is listed under `devices` for both `g1` and `qg1` in `cluster/docker-compose.yml` and that CDI is configured at `/etc/cdi/nvidia.yaml` on the host.
+
+If CuPy is not installed, run `./setup/02-build-shared.sh --gpu`. If qiskit-aer-gpu is not installed, run `./setup/02-build-shared.sh --quantum-gpu`.
+
+**QRMI job connects but finds no backends**
+
+This is expected if your IBM Quantum instance has 0 seconds of compute time remaining. The QRMI integration itself is working correctly — the quota is exhausted. Check your instance usage at https://quantum.cloud.ibm.com.
 
 **Disk space**
 

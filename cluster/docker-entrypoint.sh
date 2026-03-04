@@ -1,11 +1,20 @@
 #!/bin/bash
 set -e
 
-if [ "$1" = "slurmdbd" ]
-then
+# ── Entropy fix for WSL2 ──────────────────────────────────────────────────────
+# WSL2 caps /proc/sys/kernel/random/entropy_avail at 256, which causes munged
+# to block indefinitely waiting for entropy from /dev/random.
+# Passing --seed /dev/urandom tells munged to use urandom directly instead.
+
+start_munge() {
     echo "---> Starting the MUNGE Authentication service (munged) ..."
     chown munge:munge /run/munge /var/run/munge /var/log/munge 2>/dev/null || true
-    gosu munge /usr/sbin/munged
+    gosu munge /usr/sbin/munged --seed /dev/urandom
+}
+
+if [ "$1" = "slurmdbd" ]
+then
+    start_munge
     echo "---> Starting the Slurm Database Daemon (slurmdbd) ..."
 
     {
@@ -23,9 +32,7 @@ fi
 
 if [ "$1" = "slurmctld" ]
 then
-    echo "---> Starting the MUNGE Authentication service (munged) ..."
-    chown munge:munge /run/munge /var/run/munge /var/log/munge 2>/dev/null || true
-    gosu munge /usr/sbin/munged    
+    start_munge    
 
     echo "---> Waiting for slurmdbd to become active before starting slurmctld ..."
 
@@ -46,9 +53,7 @@ fi
 
 if [ "$1" = "slurmd" ]
 then
-    echo "---> Starting the MUNGE Authentication service (munged) ..."
-    chown munge:munge /run/munge /var/run/munge /var/log/munge 2>/dev/null || true
-    gosu munge /usr/sbin/munged    
+    start_munge    
 
     echo "---> Waiting for slurmctld to become active before starting slurmd..."
 
@@ -65,9 +70,7 @@ fi
 
 if [ "$1" = "login" ]
 then
-    echo "---> Starting the MUNGE Authentication service (munged) ..."
-    chown munge:munge /run/munge /var/run/munge /var/log/munge 2>/dev/null || true
-    gosu munge /usr/sbin/munged
+    start_munge
     exec tail -f /dev/null
 fi
 

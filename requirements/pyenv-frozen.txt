@@ -87,6 +87,7 @@ python-dateutil==2.9.0.post0
 python-dotenv==1.2.1
 pytokens==0.4.1
 qiskit==2.3.0
+qiskit-aer==0.17.1
 qiskit-addon-sqd==0.12.1
 qiskit-ibm-runtime==0.45.1
 qiskit-qasm3-import==0.6.0

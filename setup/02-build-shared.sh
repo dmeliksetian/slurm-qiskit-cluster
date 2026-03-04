@@ -8,7 +8,12 @@
 # By default skips if /shared/pyenv already exists. Use --force to rebuild.
 #
 # Usage:
-#   ./setup/02-build-shared.sh [--force]
+#   ./setup/02-build-shared.sh [--force] [--gpu] [--quantum-gpu] [--packages-only]
+#
+#   --force          Remove and rebuild /shared/pyenv from scratch
+#   --gpu            Install CuPy into /shared/pyenv (NVIDIA CUDA only, for g1)
+#   --quantum-gpu    Install qiskit-aer-gpu into /shared/pyenv (NVIDIA CUDA only, for qg1)
+#   --packages-only  Skip qrmi + SPANK plugin build — pip packages only (faster updates)
 #
 # Prerequisites:
 #   - 01-build-images.sh must have been run (builder image must exist)
@@ -34,15 +39,27 @@ die()     { echo -e "${RED}[error]${NC} $*" >&2; exit 1; }
 # ── Parse arguments ───────────────────────────────────────────────────────────
 FORCE=0
 GPU=0
+QUANTUM_GPU=0
 PACKAGES_ONLY=0
 for arg in "$@"; do
     case $arg in
         --force)         FORCE=1         ;;
         --gpu)           GPU=1           ;;
+        --quantum-gpu)   QUANTUM_GPU=1   ;;
         --packages-only) PACKAGES_ONLY=1 ;;
         *) die "Unknown argument: $arg" ;;
     esac
 done
+
+# ── Warn if GPU flags used without a detectable NVIDIA GPU ────────────────────
+if [[ "$GPU" -eq 1 || "$QUANTUM_GPU" -eq 1 ]]; then
+    if ! command -v nvidia-smi &>/dev/null || ! nvidia-smi &>/dev/null; then
+        warn "--gpu/--quantum-gpu specified but no NVIDIA GPU detected on this host"
+        warn "Packages will be installed into /shared/pyenv but will only be"
+        warn "functional at runtime on nodes with NVIDIA CUDA (g1, qg1)"
+    fi
+fi
+
 # ── Load .env ─────────────────────────────────────────────────────────────────
 if [[ -f "$ENV_FILE" ]]; then
     set -a; source "$ENV_FILE"; set +a
@@ -100,6 +117,7 @@ podman run --rm \
     --name slurm-qiskit-builder-run \
     -v "$SHARED_DIR:/shared:z" \
     -e INSTALL_GPU_PACKAGES="${GPU}" \
+    -e INSTALL_QUANTUM_GPU_PACKAGES="${QUANTUM_GPU}" \
     -e PACKAGES_ONLY="${PACKAGES_ONLY}" \
     "slurm-qiskit-builder:${IMAGE_TAG}"
 

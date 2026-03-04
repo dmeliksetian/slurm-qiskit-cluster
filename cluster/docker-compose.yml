@@ -11,6 +11,7 @@
 #   c1, c2      General compute nodes
 #   q1          IBM Quantum / QRMI execution node
 #   g1          GPU postprocessing node (requires NVIDIA GPU)
+#   qg1         GPU-accelerated Aer simulation node (requires NVIDIA GPU)
 #
 # /shared is bind-mounted into all compute nodes. It must be populated
 # by the builder container before starting the cluster:
@@ -139,6 +140,36 @@ services:
     image: slurm-qiskit-gpu:${IMAGE_TAG:-latest}
     hostname: g1
     container_name: g1
+    command: slurmd
+    volumes:
+      - shared:/shared
+      - etc_munge:/etc/munge
+      - etc_slurm:/etc/slurm
+      - slurm_jobdir:/data
+      - var_log_slurm:/var/log/slurm
+      - /usr/lib/wsl/lib:/usr/lib/wsl/lib:ro
+    devices:
+      - /dev/dxg
+      - nvidia.com/gpu=all
+    depends_on:
+      - slurmctld
+    restart: unless-stopped
+
+  # ── Quantum-GPU simulation node ──────────────────────────────────────────────
+  # GPU-accelerated Aer simulation via qiskit-aer-gpu.
+  # Inherits full CUDA stack from the gpu image stage.
+  # qiskit-aer-gpu lives in /shared/pyenv — install with:
+  #   ./setup/02-build-shared.sh --quantum-gpu
+  # Requires NVIDIA GPU with CUDA. Remove or comment out if no GPU available.
+  qg1:
+    build:
+      <<: *build-common
+      target: quantum-gpu
+      args:
+        CUDA_VERSION: ${CUDA_VERSION:-12-9}
+    image: slurm-qiskit-quantum-gpu:${IMAGE_TAG:-latest}
+    hostname: qg1
+    container_name: qg1
     command: slurmd
     volumes:
       - shared:/shared

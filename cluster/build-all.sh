@@ -52,10 +52,27 @@ success "Pinned packages installed"
 
 # ── Step 2b: Install GPU packages into pyenv ──────────────────────────────────
 if [[ "${INSTALL_GPU_PACKAGES:-0}" == "1" ]]; then
-    info "Installing GPU packages (cupy-cuda12x) ..."
-    pip install cupy-cuda12x==14.0.1 
+    info "Installing GPU packages (cupy-cuda12x, qiskit-addon-dice-solver) ..."
+    pip install cupy-cuda12x==14.0.1
+    pip install qiskit-addon-dice-solver
     success "GPU packages installed"
 fi
+
+# ── Step 2c: Install quantum-GPU packages into pyenv ─────────────────────────
+# qiskit-aer-gpu requires CUDA 12.x at runtime — only functional on qg1.
+# Like CuPy, it lives in /shared/pyenv rather than baked into the image.
+# qiskit-aer-gpu conflicts with qiskit-aer (CPU) — uninstall it first if
+# present (e.g. installed via pyenv-frozen.txt) to avoid a broken mixed state.
+if [[ "${INSTALL_QUANTUM_GPU_PACKAGES:-0}" == "1" ]]; then
+    info "Installing quantum-GPU packages (qiskit-aer-gpu) ..."
+    if pip show qiskit-aer &>/dev/null; then
+        warn "qiskit-aer (CPU) found — removing before installing qiskit-aer-gpu ..."
+        pip uninstall -y qiskit-aer
+    fi
+    pip install qiskit-aer-gpu
+    success "Quantum-GPU packages installed"
+fi
+
 # ── Step 3: Build qrmi wheel from source ─────────────────────────────────────
 if [[ "${PACKAGES_ONLY:-0}" == "1" ]]; then
     info "Skipping qrmi and SPANK plugin build (--packages-only)"
@@ -117,7 +134,9 @@ echo "    qiskit-ibm-runtime:$(pip show qiskit-ibm-runtime | grep Version || ech
 echo "    qiskit-addon-sqd:  $(pip show qiskit-addon-sqd   | grep '^Version' || echo NOT FOUND)"
 echo "    ffsim:             $(pip show ffsim               | grep Version || echo NOT FOUND)"
 echo "    pyscf:             $(pip show pyscf               | grep Version || echo NOT FOUND)"
-echo "    cupy:              $(pip show cupy-cuda12x        | grep Version || echo NOT FOUND)"
+echo "    cupy:              $(pip show cupy-cuda12x             | grep Version || echo NOT FOUND)"
+echo "    dice-solver:       $(pip show qiskit-addon-dice-solver | grep Version || echo NOT FOUND)"
+echo "    qiskit-aer-gpu:    $(pip show qiskit-aer-gpu           | grep Version || echo NOT FOUND)"
 echo ""
 if [[ -f "$SO_FILE" ]]; then
     echo "  SPANK plugin:"

@@ -352,13 +352,16 @@ RUN yum -y install epel-release \
 
 # ── Dice C++ binary ───────────────────────────────────────────────────────────
 # Builds the binary; Python wrapper is in /shared/pyenv/qiskit_addon_dice_solver
+# Builds the Dice binary only. The Python wrapper (qiskit-addon-dice-solver)
+# lives in /shared/pyenv — installed via ./setup/02-build-shared.sh --gpu.
+# Binary copied to /usr/local/bin/Dice so it is on PATH for all Slurm jobs.
+# Boost shared libs copied to /usr/local/lib so the binary links correctly.
 RUN git clone --depth=1 -b stable/0.3 \
        https://github.com/Qiskit/qiskit-addon-dice-solver.git /tmp/dice-solver \
     && cd /tmp/dice-solver \
     && mkdir -p external \
     && git clone https://github.com/caleb-johnson/Dice.git external/Dice \
     && DICE_ROOT=/tmp/dice-solver/external/Dice \
-    && DICE_BIN_PATH=/tmp/dice-solver/qiskit_addon_dice_solver/bin \
     && BOOST_INC=/usr/include/boost \
     && BOOST_LIB=/usr/lib64/openmpi/lib \
     && HDF5_INC=/usr/include/openmpi-x86_64 \
@@ -369,12 +372,10 @@ RUN git clone --depth=1 -b stable/0.3 \
     && sed -i "s|-L.*boost.*/lib|-L${BOOST_LIB}|g" Makefile \
     && sed -i "s|-I/usr/lib/x86_64-linux-gnu/hdf5/openmpi//include|-I${HDF5_INC}|g" Makefile \
     && PATH=/usr/lib64/openmpi/bin:$PATH make -j1 Dice \
-    && mkdir -p $DICE_BIN_PATH \
-    && cp $DICE_ROOT/bin/Dice $DICE_BIN_PATH \
-    && find /usr/lib64 -name "libboost_mpi*.so*"           -exec cp {} $DICE_BIN_PATH \; \
-    && find /usr/lib64 -name "libboost_serialization*.so*" -exec cp {} $DICE_BIN_PATH \; \
-    && cd /tmp/dice-solver \
-    && pip3.12 install . \
+    && cp $DICE_ROOT/bin/Dice /usr/local/bin/Dice \
+    && find /usr/lib64 -name "libboost_mpi*.so*"           -exec cp {} /usr/local/lib \; \
+    && find /usr/lib64 -name "libboost_serialization*.so*" -exec cp {} /usr/local/lib \; \
+    && ldconfig \
     && cd / \
     && rm -rf /tmp/dice-solver
 
@@ -385,11 +386,13 @@ CMD ["slurmd"]
 # QUANTUM-GPU — qg1
 # GPU-accelerated Aer simulation. Inherits full CUDA stack from gpu stage.
 # qiskit-aer-gpu requires CUDA 12.x — satisfied by gpu stage.
-# Installed into system Python for same reason as CuPy.
-# Verify wheel availability: pip index versions qiskit-aer-gpu
+#
+# qiskit-aer-gpu is NOT installed here. Like CuPy, it lives in /shared/pyenv
+# and is installed by the builder container via:
+#   ./setup/02-build-shared.sh --quantum-gpu
+# This keeps the install consistent with the rest of the quantum stack and
+# avoids baking credentials or package versions into the image.
 # -----------------------------------------------------------------------------
 FROM gpu AS quantum-gpu
-
-RUN pip3.12 install qiskit-aer-gpu
 
 CMD ["slurmd"]
