@@ -78,9 +78,10 @@ fi
     || die "shared/spank-plugins submodule not initialised\n       Run: git submodule update --init --recursive"
 
 # ── Check if already built ────────────────────────────────────────────────────
-if [[ -d "$SHARED_DIR/pyenv" ]] && [[ "$FORCE" -eq 0 ]]; then
+if [[ -d "$SHARED_DIR/pyenv" ]] && [[ "$FORCE" -eq 0 ]] && [[ "$PACKAGES_ONLY" -eq 0 ]]; then
     warn "/shared/pyenv already exists — skipping build"
     warn "Use --force to rebuild: ./setup/02-build-shared.sh --force"
+    warn "Use --packages-only to re-run pip installs only: ./setup/02-build-shared.sh --packages-only"
     echo ""
 
     # Still check for the SPANK plugin

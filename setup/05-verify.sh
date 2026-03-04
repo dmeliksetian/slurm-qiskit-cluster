@@ -47,7 +47,7 @@ done
 echo ""
 echo -e "${BOLD}slurm-qiskit-cluster — verification${NC}"
 echo "======================================"
-[[ "$TEST_GPU"  -eq 1 ]] && echo "  GPU tests:  enabled"  || echo "  GPU tests:  disabled (--gpu to enable)"
+[[ "$TEST_GPU"  -eq 1 ]] && echo "  GPU tests:  enabled (g1 + qg1)"  || echo "  GPU tests:  disabled (--gpu to enable)"
 [[ "$TEST_QRMI" -eq 1 ]] && echo "  QRMI tests: enabled"  || echo "  QRMI tests: disabled (--qrmi to enable)"
 
 # ── Helper: run command in container ─────────────────────────────────────────
@@ -93,7 +93,7 @@ submit_and_wait() {
 # =============================================================================
 section "Containers"
 
-for node in slurmctld slurmdbd mysql c1 c2 q1; do
+for node in slurmctld slurmdbd mysql c1 c2 q1 qg1; do
     if podman ps --format "{{.Names}}" | grep -q "^${node}$"; then
         pass "$node is running"
     else
@@ -251,27 +251,64 @@ if [[ "$TEST_GPU" -eq 1 ]]; then
 fi
 
 # =============================================================================
+# TEST 7b — quantum-GPU (qg1) — qiskit-aer-gpu import check
+# =============================================================================
+if [[ "$TEST_GPU" -eq 1 ]]; then
+    section "Quantum-GPU (qg1)"
+
+    # Check for qiskit-aer-gpu via direct dist-info path — faster than pip show
+    AER_GPU_VER=$(podman exec qg1 bash -c \
+        "ls /shared/pyenv/lib64/python3.12/site-packages/ 2>/dev/null | grep qiskit_aer_gpu | grep dist-info | sed 's/qiskit_aer_gpu-//;s/.dist-info//'")
+    if [[ -z "$AER_GPU_VER" ]]; then
+        warn "qiskit-aer-gpu not installed on qg1 — run: ./setup/02-build-shared.sh --quantum-gpu"
+        warn "Note: qiskit-aer-gpu 0.15.1 is incompatible with Qiskit 2.x (issue #2336)"
+        warn "Install only once a Qiskit 2.x compatible release is published"
+    else
+        # Try importing — will fail with Qiskit 2.x due to removed convert_to_target
+        AER_IMPORT=$(run_in qg1 "python3 -c 'import qiskit_aer; print(qiskit_aer.__version__)'" 2>&1)
+        if echo "$AER_IMPORT" | grep -qP '^[0-9]+\.[0-9]+'; then
+            pass "qiskit-aer-gpu $AER_GPU_VER importable on qg1"
+        else
+            # Known incompatibility — warn, don't fail
+            warn "qiskit-aer-gpu $AER_GPU_VER installed but not importable on qg1"
+            warn "Known issue: qiskit-aer-gpu <= 0.15.1 is incompatible with Qiskit 2.x"
+            warn "Tracking: https://github.com/Qiskit/qiskit-aer/issues/2336"
+        fi
+    fi
+fi
+
+# =============================================================================
 # TEST 8 — QRMI connectivity (optional)
 # =============================================================================
 if [[ "$TEST_QRMI" -eq 1 ]]; then
     section "QRMI connectivity"
 
-    QRMI_SCRIPT="source /shared/pyenv/bin/activate && python3 -c '
+    # Write test script on host and copy into slurmctld — avoids all quoting issues
+    QRMI_HOST_TMP=$(mktemp /tmp/verify-qrmi-XXXXXX.sh)
+    cat > "$QRMI_HOST_TMP" << 'SCRIPTEOF'
+#!/bin/bash
+source /shared/pyenv/bin/activate
+python3 - << PYEOF
 from qrmi.primitives import QRMIService
 service = QRMIService()
 resources = service.resources()
-print(f\"Backends found: {len(resources)}\")
+print("Backends found: {}".format(len(resources)))
 for r in resources:
-    print(f\"  - {r.name}\")
-print(\"PASS\")
-'"
+    print("  - {}".format(r.resource_id()))
+print("PASS")
+PYEOF
+SCRIPTEOF
+    chmod +x "$QRMI_HOST_TMP"
+    QRMI_TMP=/tmp/verify-qrmi-script.sh
+    podman cp "$QRMI_HOST_TMP" "slurmctld:${QRMI_TMP}"
+    rm -f "$QRMI_HOST_TMP"
 
-    JOB_ID=$(podman exec slurmctld bash -c "sbatch --job-name=verify-qrmi --partition=quantum --qpu=ibm_torino --output=/tmp/verify-qrmi-%j.out --wrap='$QRMI_SCRIPT'" 2>/dev/null | grep -oP '(?<=Submitted batch job )\d+')
+    JOB_ID=$(podman exec slurmctld bash -c         "sbatch --job-name=verify-qrmi --partition=quantum --qpu=ibm_torino --output=/tmp/verify-qrmi-%j.out ${QRMI_TMP}"         2>/dev/null | grep -oP "(?<=Submitted batch job )\d+")
 
     if [[ -z "$JOB_ID" ]]; then
         fail "QRMI job submission failed"
     else
-        pass "QRMI job $JOB_ID submitted"
+        pass "QRMI job $JOB_ID submitted to quantum partition"
         for i in $(seq 1 20); do
             sleep 3
             STATE=$(podman exec slurmctld bash -c "squeue -j $JOB_ID -h -o %T 2>/dev/null")
@@ -280,10 +317,11 @@ print(\"PASS\")
         OUT=$(podman exec q1 bash -c "cat /tmp/verify-qrmi-${JOB_ID}.out 2>/dev/null || true")
         if echo "$OUT" | grep -q "PASS"; then
             pass "QRMI service reachable via Slurm job"
-            echo "$OUT" | grep -E "Backends|  -" | while read -r line; do info "$line"; done
+            echo "$OUT" | grep -E "Backends found|  -" | while read -r line; do info "$line"; done
         else
             fail "QRMI job did not produce expected output"
             info "$OUT"
+            info "Check credentials in /etc/slurm/qrmi_config.json on slurmctld and q1"
         fi
     fi
 fi
