@@ -1,0 +1,17 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+authors:
+- family-names: "Meliksetian"
+  given-names: "Dikran"
+  orcid: "https://orcid.org/0000-0000-0000-0000" # Replace with your ORCID if you have one
+title: "slurm-qiskit-cluster: A Containerized, GPU-Accelerated Slurm Cluster for Qiskit and QRMI"
+version: 1.0.0
+date-released: 2026-03-04
+url: "https://github.com/dmeliksetian/slurm-qiskit-cluster"
+keywords:
+  - "quantum computing"
+  - "qiskit"
+  - "slurm"
+  - "hpc"
+  - "gpu acceleration"
+  - "qrmi"
