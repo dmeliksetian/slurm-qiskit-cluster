@@ -4,6 +4,9 @@
 
 # Credentials — never commit
 cluster/config/qrmi_config*.json
+cluster/config/slurm.conf
+cluster/config/gres.conf
+cluster/docker-compose.yml
 
 # Shared volume contents — built at runtime, not tracked
 shared/pyenv/

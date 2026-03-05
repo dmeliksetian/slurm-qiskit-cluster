@@ -8,3 +8,7 @@ Dockerfile  text eol=lf
 *.txt       text eol=lf
 *.json      text eol=lf
 *.example   text eol=lf
+*.conf.template    text eol=lf
+*.yml.template     text eol=lf
+*.yaml.template    text eol=lf
+.gitattributes     text eol=lf

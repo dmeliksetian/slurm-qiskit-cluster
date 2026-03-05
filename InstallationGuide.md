@@ -11,6 +11,7 @@ This guide walks through building and running `slurm-qiskit-cluster` from scratc
 - [WSL2-specific setup](#wsl2-specific-setup)
 - [Clone the repository](#clone-the-repository)
 - [Configure the environment](#configure-the-environment)
+- [Configure system hardware](#configure-system-hardware)
 - [Configure credentials](#configure-credentials)
 - [Build the images](#build-the-images)
 - [Build the shared environment](#build-the-shared-environment)
@@ -37,6 +38,12 @@ Run the prerequisite check at any time:
 
 ```bash
 ./setup/00-check-prereqs.sh
+```
+
+After the prereqs pass, run the system configuration script to generate hardware-specific config files for your machine:
+
+```bash
+./setup/00b-configure-system.sh
 ```
 
 ### GPU support
@@ -158,11 +165,63 @@ GOSU_VERSION=1.17
 MY_PMIX_VERSION=4.2.9
 OPENMPI_VERSION=4.1.6
 
-# CUDA version (gpu and quantum-gpu stages only — NVIDIA CUDA required)
+# CUDA version and CPU count — set automatically by 00b-configure-system.sh
+# You can override them here if auto-detection gives the wrong result
 CUDA_VERSION=12-9
+SLURM_CPUS_PER_NODE=2
 ```
 
 The `SLURM_TAG` must correspond to a valid tag in https://github.com/SchedMD/slurm/tags. The value above (`slurm-23-11-9-1`) is the confirmed working version for this repo.
+
+`CUDA_VERSION` and `SLURM_CPUS_PER_NODE` are updated automatically when you run `./setup/00b-configure-system.sh` in the next step. You only need to edit them manually if auto-detection produces the wrong value.
+
+---
+
+## Configure system hardware
+
+The cluster configuration files (`slurm.conf`, `gres.conf`, `docker-compose.yml`) contain hardware-specific values — CPU count, memory, GPU model, and GPU device path — that differ between machines. These files are **not committed to the repository**. Instead, they are generated from templates by the following script:
+
+```bash
+./setup/00b-configure-system.sh
+```
+
+Run this once after copying `.env`. The script detects your hardware automatically and renders the three config files. It will show you the resolved values and ask for confirmation before writing anything.
+
+### What it detects
+
+| Value | Source | Files updated |
+|---|---|---|
+| Logical CPU count | `lscpu` | `slurm.conf`, `.env` |
+| CPU topology (sockets, cores, threads) | `lscpu` | `slurm.conf` |
+| Usable RAM (95% of total) | `/proc/meminfo` | `slurm.conf` |
+| GPU model slug (e.g. `rtx2080ti`) | `nvidia-smi` | `slurm.conf`, `gres.conf` |
+| GPU device path (`/dev/dxg` on WSL2, `/dev/nvidia0` on bare metal) | `/dev/dxg` presence + `nvidia-smi` | `gres.conf`, `docker-compose.yml` |
+| WSL2 `/usr/lib/wsl/lib` bind-mount | `/dev/dxg` presence | `docker-compose.yml` |
+| CUDA version suffix (e.g. `12-9`) | `nvidia-smi` header | `.env` |
+
+### Options
+
+```bash
+./setup/00b-configure-system.sh             # auto-detect everything
+./setup/00b-configure-system.sh --dry-run   # show values, write nothing
+./setup/00b-configure-system.sh --no-gpu    # skip GPU detection (no GPU on this host)
+```
+
+### Re-running
+
+The script is safe to re-run — it overwrites the generated files each time. Re-run it if you move the repo to a different machine, change hardware, or edit any of the `.template` files.
+
+### Templates
+
+The three template files are tracked in the repository and contain `@@PLACEHOLDER@@` tokens:
+
+```
+cluster/config/slurm.conf.template
+cluster/config/gres.conf.template
+cluster/docker-compose.yml.template
+```
+
+The generated files (`slurm.conf`, `gres.conf`, `docker-compose.yml`) are listed in `.gitignore`. If you need to adjust Slurm policy, partition layout, or other non-hardware settings, edit the corresponding `.template` file and re-run the script.
 
 ---
 
@@ -426,6 +485,17 @@ podman exec c1 /shared/pyenv/bin/pip freeze | grep -v '^qrmi' > requirements/pye
 ---
 
 ## Troubleshooting
+
+**slurm.conf / gres.conf / docker-compose.yml are missing after clone**
+
+These files are not committed to the repository — they are generated from templates by `00b-configure-system.sh`. If they are missing (e.g. after a fresh clone), run:
+
+```bash
+cp .env.example .env
+./setup/00b-configure-system.sh
+```
+
+If you accidentally edited a generated file directly and want to reset it to the correct values for your hardware, simply re-run the script — it overwrites the generated files from the templates each time.
 
 **slurmctld does not become ready**
 
