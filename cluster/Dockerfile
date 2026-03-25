@@ -225,8 +225,9 @@ COPY cluster/config/cgroup.conf         /etc/slurm/cgroup.conf
 COPY cluster/config/plugstack.conf      /etc/slurm/plugstack.conf
 COPY cluster/config/qrmi_config.json    /etc/slurm/qrmi_config.json
 
-RUN chown slurm:slurm /etc/slurm/slurmdbd.conf \
-    && chmod 600 /etc/slurm/slurmdbd.conf
+RUN chown slurm:slurm /etc/slurm/slurmdbd.conf /etc/slurm/qrmi_config.json \
+    && chmod 600 /etc/slurm/slurmdbd.conf /etc/slurm/qrmi_config.json \
+    && chmod +x /etc/slurm/task_prolog.sh
 
 COPY cluster/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
@@ -326,9 +327,10 @@ CMD ["slurmd"]
 FROM compute-base AS gpu
 
 # ── CUDA runtime libraries ────────────────────────────────────────────────────
+ARG CUDA_VERSION=12-9
 RUN dnf config-manager \
        --add-repo https://developer.download.nvidia.com/compute/cuda/repos/rhel9/x86_64/cuda-rhel9.repo \
-    && dnf -y install cuda-libraries-12-9 \
+    && dnf -y install cuda-libraries-${CUDA_VERSION} \
     && dnf clean all \
     && rm -rf /var/cache/dnf
 

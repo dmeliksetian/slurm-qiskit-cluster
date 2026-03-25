@@ -8,6 +8,7 @@ This guide walks through building and running `slurm-qiskit-cluster` from scratc
 
 - [Prerequisites](#prerequisites)
 - [Installing Podman](#installing-podman)
+- [Bare-metal GPU setup (NVIDIA only)](#bare-metal-gpu-setup-nvidia-only)
 - [WSL2-specific setup](#wsl2-specific-setup)
 - [Clone the repository](#clone-the-repository)
 - [Configure the environment](#configure-the-environment)
@@ -34,16 +35,10 @@ Before starting, confirm you have the following on your host:
 - 20 GB free disk space (images + shared pyenv are large)
 - **NVIDIA GPU with CUDA support** (optional — required only for the `g1` and `qg1` nodes; see [GPU support](#gpu-support) below)
 
-Run the prerequisite check at any time:
+After cloning the repository, you can verify prerequisites with:
 
 ```bash
 ./setup/00-check-prereqs.sh
-```
-
-After the prereqs pass, run the system configuration script to generate hardware-specific config files for your machine:
-
-```bash
-./setup/00b-configure-system.sh
 ```
 
 ### GPU support
@@ -84,6 +79,54 @@ pip install podman-compose
 Podman runs natively inside WSL2 — install using the distro instructions above. No Docker Desktop required.
 
 Official Podman installation documentation: https://podman.io/docs/installation
+
+---
+
+## Bare-metal GPU setup (NVIDIA only)
+
+> **Skip this section if you do not have an NVIDIA GPU, or if you are running on WSL2.**
+
+On bare-metal Linux, Podman uses the [Container Device Interface (CDI)](https://github.com/cncf-tags/container-device-interface) to inject the GPU into containers. You need to install the NVIDIA Container Toolkit and generate a CDI manifest once before starting the cluster.
+
+### 1. Install the NVIDIA Container Toolkit
+
+#### Fedora / Rocky Linux 9 / RHEL
+
+```bash
+curl -s -L https://nvidia.github.io/libnvidia-container/stable/rpm/nvidia-container-toolkit.repo \
+    | sudo tee /etc/yum.repos.d/nvidia-container-toolkit.repo
+sudo dnf install -y nvidia-container-toolkit
+```
+
+#### Ubuntu 22.04+
+
+```bash
+curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey \
+    | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
+
+curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list \
+    | sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' \
+    | sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
+
+sudo apt update && sudo apt install -y nvidia-container-toolkit
+```
+
+### 2. Generate the CDI manifest
+
+```bash
+sudo nvidia-ctk cdi generate --output=/etc/cdi/nvidia.yaml
+```
+
+This scans your installed NVIDIA driver and creates `/etc/cdi/nvidia.yaml`, which tells Podman how to inject the GPU into containers. The command produces several `WARN` lines for optional components (X11, Wayland, MPS sockets) — these are harmless.
+
+### 3. Verify
+
+```bash
+nvidia-ctk cdi list
+# Expected output: nvidia.com/gpu=0  (or similar for your GPU index)
+```
+
+Re-run `nvidia-ctk cdi generate` any time you update your NVIDIA driver.
 
 ---
 
@@ -145,7 +188,13 @@ ls shared/spank-plugins/plugins/   # should exist
 
 ## Configure the environment
 
-Copy the example environment file and review the values:
+First, verify that all prerequisites are met:
+
+```bash
+./setup/00-check-prereqs.sh
+```
+
+Then copy the example environment file and review the values:
 
 ```bash
 cp .env.example .env
