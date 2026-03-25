@@ -33,6 +33,7 @@ build/
 *.whl
 
 # Editor and OS
+.venv
 .vscode/
 .idea/
 *.swp
