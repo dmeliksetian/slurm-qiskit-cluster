@@ -1,4 +1,5 @@
 # slurm-qiskit-cluster
+[![Qiskit Ecosystem](https://qisk.it/e-e5dcec2b)](https://qisk.it/e)
 
 A self-contained Slurm cluster for running quantum computing workloads locally using [Qiskit](https://github.com/Qiskit/qiskit) and [QRMI](https://github.com/qiskit-community/qrmi). Built with Podman and designed to run on any Linux host, including WSL2.
 
