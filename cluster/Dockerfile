@@ -276,6 +276,37 @@ CMD ["/build/build-all.sh"]
 
 
 # -----------------------------------------------------------------------------
+# BUILDER-GPU — ephemeral artifact builder for qiskit-aer-gpu from source
+# Inherits the full CUDA runtime from gpu, then adds:
+#   - cuda-toolkit-${CUDA_VERSION}  (nvcc + dev headers for compilation)
+#   - nlohmann-json-devel            (required by qiskit-aer with DISABLE_CONAN=ON)
+#   - scikit-build, pybind11         (Python build deps for setup.py bdist_wheel)
+#   - maturin                        (for qrmi, same as builder)
+#
+# Used by 02-build-shared.sh --quantum-gpu in place of the standard builder.
+# Produces the same /shared/pyenv and spank_qrmi.so outputs, plus a
+# qiskit-aer wheel built from dmeliksetian/qiskit-aer@build/combined-patches.
+# -----------------------------------------------------------------------------
+FROM gpu AS builder-gpu
+
+ARG CUDA_VERSION=12-9
+
+RUN dnf -y install \
+       cuda-toolkit-${CUDA_VERSION} \
+       nlohmann-json-devel \
+    && dnf clean all \
+    && rm -rf /var/cache/dnf
+
+RUN pip3.12 install maturin==1.12.2 build scikit-build pybind11
+
+COPY requirements/pyenv-frozen.txt    /build/pyenv-frozen.txt
+COPY cluster/build-all.sh             /build/build-all.sh
+RUN chmod +x /build/build-all.sh
+
+CMD ["/build/build-all.sh"]
+
+
+# -----------------------------------------------------------------------------
 # CONTROL — login, slurmctld, slurmdbd
 # Pure Slurm control plane. No compute libraries, no GPU, no Python packages.
 # -----------------------------------------------------------------------------

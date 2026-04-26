@@ -66,9 +66,20 @@ if [[ -f "$ENV_FILE" ]]; then
 fi
 IMAGE_TAG="${IMAGE_TAG:-latest}"
 
-# ── Validate builder image exists ─────────────────────────────────────────────
-if ! podman image exists "slurm-qiskit-builder:${IMAGE_TAG}"; then
-    die "Builder image not found: slurm-qiskit-builder:${IMAGE_TAG}\n       Run: ./setup/01-build-images.sh"
+# ── Select builder image ──────────────────────────────────────────────────────
+# --quantum-gpu requires builder-gpu (has nvcc + CUDA dev headers for source build)
+if [[ "$QUANTUM_GPU" -eq 1 ]]; then
+    BUILDER_IMAGE="slurm-qiskit-builder-gpu"
+else
+    BUILDER_IMAGE="slurm-qiskit-builder"
+fi
+
+if ! podman image exists "${BUILDER_IMAGE}:${IMAGE_TAG}"; then
+    if [[ "$QUANTUM_GPU" -eq 1 ]]; then
+        die "Builder-GPU image not found: ${BUILDER_IMAGE}:${IMAGE_TAG}\n       Run: ./setup/01-build-images.sh --quantum-gpu"
+    else
+        die "Builder image not found: ${BUILDER_IMAGE}:${IMAGE_TAG}\n       Run: ./setup/01-build-images.sh"
+    fi
 fi
 
 # ── Validate submodules are populated ─────────────────────────────────────────
@@ -120,7 +131,9 @@ podman run --rm \
     -e INSTALL_GPU_PACKAGES="${GPU}" \
     -e INSTALL_QUANTUM_GPU_PACKAGES="${QUANTUM_GPU}" \
     -e PACKAGES_ONLY="${PACKAGES_ONLY}" \
-    "slurm-qiskit-builder:${IMAGE_TAG}"
+    -e CUDA_VERSION="${CUDA_VERSION:-12-9}" \
+    -e CUDA_ARCH="${CUDA_ARCH:-}" \
+    "${BUILDER_IMAGE}:${IMAGE_TAG}"
 
 # ── Verify outputs ────────────────────────────────────────────────────────────
 echo ""

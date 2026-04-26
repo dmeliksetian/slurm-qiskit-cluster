@@ -397,7 +397,11 @@ Pass `--gpu` to install CuPy (for `g1`), `--quantum-gpu` to install qiskit-aer-g
 ./setup/02-build-shared.sh --gpu --quantum-gpu      # both
 ```
 
-CuPy (`cupy-cuda12x==14.0.1`) and qiskit-aer-gpu are installed into `/shared/pyenv` rather than baked into the images. They are present on all nodes but only functional on `g1` and `qg1` respectively, where the GPU and CUDA libraries are available. **AMD, Intel, and other GPU vendors are not supported — both packages require NVIDIA CUDA.**
+CuPy (`cupy-cuda12x==14.0.1`) is installed from PyPI. `qiskit-aer` with GPU support is built from source (there is no official PyPI wheel for newer CUDA versions or architectures such as Blackwell). The source build clones `dmeliksetian/qiskit-aer@build/combined-patches`, which includes patches for Blackwell (sm_120) support, CUDA 13.x Thrust/CCCL compatibility, and nlohmann_json ≥ 3.11 compatibility. cuTENSOR and cuQuantum are installed from pip and linked against at compile time.
+
+Both packages are installed into `/shared/pyenv` rather than baked into the images. They are present on all nodes but only functional on `g1` and `qg1` respectively, where the GPU and CUDA libraries are available. **AMD, Intel, and other GPU vendors are not supported — both packages require NVIDIA CUDA.**
+
+> **Note:** `01-build-images.sh --quantum-gpu` must be run before `02-build-shared.sh --quantum-gpu`. The `--quantum-gpu` flag builds the `builder-gpu` image, which extends the `gpu` stage with the full CUDA toolkit (`nvcc`, dev headers) needed to compile qiskit-aer from source. `CUDA_ARCH` must be set in `.env` (done automatically by `00b-configure-system.sh`).
 
 Expected time: 10–20 minutes (pyscf, jax, and ffsim are large packages).
 
@@ -416,12 +420,12 @@ The build is skipped if `/shared/pyenv` already exists. To force a rebuild:
 |---|---|
 | `./setup/02-build-shared.sh` | Full build, no GPU packages |
 | `./setup/02-build-shared.sh --gpu` | Full build + CuPy for `g1` (NVIDIA CUDA only) |
-| `./setup/02-build-shared.sh --quantum-gpu` | Full build + qiskit-aer-gpu for `qg1` (NVIDIA CUDA only) |
-| `./setup/02-build-shared.sh --gpu --quantum-gpu` | Full build + CuPy + qiskit-aer-gpu |
+| `./setup/02-build-shared.sh --quantum-gpu` | Full build + qiskit-aer (GPU, built from source) for `qg1` (NVIDIA CUDA only) |
+| `./setup/02-build-shared.sh --gpu --quantum-gpu` | Full build + CuPy + qiskit-aer (GPU, built from source) |
 | `./setup/02-build-shared.sh --packages-only` | pip packages only, skip qrmi + SPANK plugin build |
 | `./setup/02-build-shared.sh --packages-only --gpu` | pip packages + CuPy, skip qrmi + SPANK plugin build |
-| `./setup/02-build-shared.sh --packages-only --quantum-gpu` | pip packages + qiskit-aer-gpu, skip qrmi + SPANK plugin build |
-| `./setup/02-build-shared.sh --force --gpu --quantum-gpu` | Full rebuild from scratch + CuPy + qiskit-aer-gpu |
+| `./setup/02-build-shared.sh --packages-only --quantum-gpu` | pip packages + qiskit-aer (GPU, built from source), skip qrmi + SPANK plugin build |
+| `./setup/02-build-shared.sh --force --gpu --quantum-gpu` | Full rebuild from scratch + CuPy + qiskit-aer (GPU, built from source) |
 
 ### What gets installed in /shared/pyenv
 
@@ -439,7 +443,7 @@ The full pinned package list is in `requirements/pyenv-frozen.txt`. Key packages
 | pulser | 1.6.6 | Pasqal neutral atom support |
 | mpi4py | 4.1.1 | MPI Python bindings |
 | cupy-cuda12x | 14.0.1 | GPU computing via CUDA (**NVIDIA only**, installed with `--gpu`) |
-| qiskit-aer-gpu | latest | GPU-accelerated Aer simulation (**NVIDIA only**, installed with `--quantum-gpu`) |
+| qiskit-aer | built from source | GPU-accelerated Aer simulation (**NVIDIA only**, built from source with `--quantum-gpu` — no official PyPI wheel for newer CUDA/architectures) |
 
 ---
 
@@ -501,7 +505,7 @@ Because the quantum stack lives in `/shared/pyenv` on the host rather than baked
 # Rebuild with CuPy (g1)
 ./setup/02-build-shared.sh --force --gpu
 
-# Rebuild with qiskit-aer-gpu (qg1)
+# Rebuild with qiskit-aer GPU source build (qg1)
 ./setup/02-build-shared.sh --force --quantum-gpu
 
 # Rebuild with both
@@ -513,7 +517,7 @@ To update only pip packages without rebuilding qrmi and the SPANK plugin (much f
 ```bash
 ./setup/02-build-shared.sh --packages-only
 ./setup/02-build-shared.sh --packages-only --gpu              # include CuPy
-./setup/02-build-shared.sh --packages-only --quantum-gpu      # include qiskit-aer-gpu
+./setup/02-build-shared.sh --packages-only --quantum-gpu      # include qiskit-aer GPU source build
 ./setup/02-build-shared.sh --packages-only --gpu --quantum-gpu
 ```
 

@@ -29,9 +29,11 @@ die()     { echo -e "${RED}[error]${NC} $*" >&2; exit 1; }
 
 # ── Parse arguments ───────────────────────────────────────────────────────────
 NO_CACHE=""
+QUANTUM_GPU=0
 for arg in "$@"; do
     case $arg in
-        --no-cache) NO_CACHE="--no-cache" ;;
+        --no-cache)    NO_CACHE="--no-cache" ;;
+        --quantum-gpu) QUANTUM_GPU=1          ;;
         *) die "Unknown argument: $arg" ;;
     esac
 done
@@ -51,6 +53,7 @@ fi
 info "SLURM_TAG:    $SLURM_TAG"
 info "IMAGE_TAG:    $IMAGE_TAG"
 info "Build context: $REPO_ROOT"
+[[ "$QUANTUM_GPU" -eq 1 ]] && info "Building builder-gpu image (--quantum-gpu)"
 [[ -n "$NO_CACHE" ]] && warn "Cache disabled (--no-cache)"
 echo ""
 
@@ -75,6 +78,22 @@ podman build $NO_CACHE \
     --file "$CLUSTER_DIR/Dockerfile" \
     "$REPO_ROOT"
 success "builder image built"
+
+# ── Build builder-gpu image (only when --quantum-gpu) ─────────────────────────
+if [[ "$QUANTUM_GPU" -eq 1 ]]; then
+    info "Building builder-gpu image ..."
+    podman build $NO_CACHE \
+        --target builder-gpu \
+        --tag "slurm-qiskit-builder-gpu:${IMAGE_TAG}" \
+        --build-arg SLURM_TAG="${SLURM_TAG}" \
+        --build-arg GOSU_VERSION="${GOSU_VERSION:-1.17}" \
+        --build-arg MY_PMIX_VERSION="${MY_PMIX_VERSION:-4.2.9}" \
+        --build-arg OPENMPI_VERSION="${OPENMPI_VERSION:-4.1.6}" \
+        --build-arg CUDA_VERSION="${CUDA_VERSION:-12-9}" \
+        --file "$CLUSTER_DIR/Dockerfile" \
+        "$REPO_ROOT"
+    success "builder-gpu image built"
+fi
 
 # ── Build runtime images via compose ─────────────────────────────────────────
 info "Building cluster images (control, compute-base, quantum, gpu, quantum-gpu) ..."
