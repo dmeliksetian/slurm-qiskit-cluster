@@ -56,8 +56,10 @@ fi
 
 # ── Step 2b: Install GPU packages into pyenv ──────────────────────────────────
 if [[ "${INSTALL_GPU_PACKAGES:-0}" == "1" ]]; then
-    info "Installing GPU packages (cupy-cuda12x, qiskit-addon-dice-solver) ..."
-    pip install cupy-cuda12x==14.0.1
+    CUDA_MAJOR=$(echo "${CUDA_VERSION:-12-0}" | cut -d'-' -f1)
+    CUPY_PACKAGE="cupy-cuda${CUDA_MAJOR}x"
+    info "Installing GPU packages (${CUPY_PACKAGE}, qiskit-addon-dice-solver) ..."
+    pip install "${CUPY_PACKAGE}"
     pip install qiskit-addon-dice-solver
     success "GPU packages installed"
 fi
@@ -278,7 +280,8 @@ echo "    qiskit-ibm-runtime:$(pip show qiskit-ibm-runtime | grep Version || ech
 echo "    qiskit-addon-sqd:  $(pip show qiskit-addon-sqd   | grep '^Version' || echo NOT FOUND)"
 echo "    ffsim:             $(pip show ffsim               | grep Version || echo NOT FOUND)"
 echo "    pyscf:             $(pip show pyscf               | grep Version || echo NOT FOUND)"
-echo "    cupy:              $(pip show cupy-cuda12x             | grep Version || echo NOT FOUND)"
+_CUPY_PKG="cupy-cuda$(echo "${CUDA_VERSION:-12-0}" | cut -d'-' -f1)x"
+echo "    cupy:              $(pip show "$_CUPY_PKG"              | grep Version || echo NOT FOUND)"
 echo "    dice-solver:       $(pip show qiskit-addon-dice-solver | grep Version || echo NOT FOUND)"
 echo "    qiskit-aer(-gpu):  $(pip show qiskit-aer               | grep Version || echo NOT FOUND)"
 echo ""

@@ -59,6 +59,12 @@ info "IMAGE_TAG:    $IMAGE_TAG"
 info "Build context: $REPO_ROOT"
 [[ "$QUANTUM_GPU" -eq 1 ]] && info "Building builder-gpu image (--quantum-gpu)"
 [[ -n "$NO_CACHE" ]] && warn "Cache disabled (--no-cache)"
+
+if [[ "$QUANTUM_GPU" -eq 1 ]]; then
+    if [[ -z "${CUDA_ARCH:-}" || -z "${CUDA_VERSION:-}" ]]; then
+        die "--quantum-gpu requires a CUDA-capable GPU.\n       No GPU detected or 00b-configure-system.sh not yet run.\n       Run: ./setup/00b-configure-system.sh"
+    fi
+fi
 echo ""
 
 # ── Validate credentials exist before baking into images ──────────────────────
