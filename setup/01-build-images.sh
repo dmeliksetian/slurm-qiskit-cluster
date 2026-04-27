@@ -38,6 +38,10 @@ for arg in "$@"; do
     esac
 done
 
+# ── Ensure podman-compose is available (may live in project .venv) ───────────
+VENV_BIN="$REPO_ROOT/.venv/bin"
+[[ -d "$VENV_BIN" ]] && export PATH="$VENV_BIN:$PATH"
+
 # ── Load .env ─────────────────────────────────────────────────────────────────
 if [[ -f "$ENV_FILE" ]]; then
     set -a; source "$ENV_FILE"; set +a

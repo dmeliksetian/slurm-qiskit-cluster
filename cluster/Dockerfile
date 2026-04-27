@@ -276,37 +276,6 @@ CMD ["/build/build-all.sh"]
 
 
 # -----------------------------------------------------------------------------
-# BUILDER-GPU — ephemeral artifact builder for qiskit-aer-gpu from source
-# Inherits the full CUDA runtime from gpu, then adds:
-#   - cuda-toolkit-${CUDA_VERSION}  (nvcc + dev headers for compilation)
-#   - nlohmann-json-devel            (required by qiskit-aer with DISABLE_CONAN=ON)
-#   - scikit-build, pybind11         (Python build deps for setup.py bdist_wheel)
-#   - maturin                        (for qrmi, same as builder)
-#
-# Used by 02-build-shared.sh --quantum-gpu in place of the standard builder.
-# Produces the same /shared/pyenv and spank_qrmi.so outputs, plus a
-# qiskit-aer wheel built from dmeliksetian/qiskit-aer@build/combined-patches.
-# -----------------------------------------------------------------------------
-FROM gpu AS builder-gpu
-
-ARG CUDA_VERSION=12-9
-
-RUN dnf -y install \
-       cuda-toolkit-${CUDA_VERSION} \
-       nlohmann-json-devel \
-    && dnf clean all \
-    && rm -rf /var/cache/dnf
-
-RUN pip3.12 install maturin==1.12.2 build scikit-build pybind11
-
-COPY requirements/pyenv-frozen.txt    /build/pyenv-frozen.txt
-COPY cluster/build-all.sh             /build/build-all.sh
-RUN chmod +x /build/build-all.sh
-
-CMD ["/build/build-all.sh"]
-
-
-# -----------------------------------------------------------------------------
 # CONTROL — login, slurmctld, slurmdbd
 # Pure Slurm control plane. No compute libraries, no GPU, no Python packages.
 # -----------------------------------------------------------------------------
@@ -429,3 +398,48 @@ CMD ["slurmd"]
 FROM gpu AS quantum-gpu
 
 CMD ["slurmd"]
+
+
+# -----------------------------------------------------------------------------
+# BUILDER-GPU — ephemeral artifact builder for qiskit-aer-gpu from source
+# Inherits the full CUDA runtime from gpu, then adds:
+#   - cuda-toolkit-${CUDA_VERSION}  (nvcc + dev headers for compilation)
+#   - nlohmann-json-devel            (required by qiskit-aer with DISABLE_CONAN=ON)
+#   - scikit-build, pybind11         (Python build deps for setup.py bdist_wheel)
+#   - maturin                        (for qrmi, same as builder)
+#
+# Used by 02-build-shared.sh --quantum-gpu in place of the standard builder.
+# Produces the same /shared/pyenv and spank_qrmi.so outputs, plus a
+# qiskit-aer wheel built from dmeliksetian/qiskit-aer@build/combined-patches.
+# -----------------------------------------------------------------------------
+FROM gpu AS builder-gpu
+
+ARG CUDA_VERSION=12-9
+
+RUN dnf -y install \
+       cuda-toolkit-${CUDA_VERSION} \
+       nlohmann-json-devel \
+       ninja-build \
+    && dnf clean all \
+    && rm -rf /var/cache/dnf
+
+# EPEL spdlog-devel on Rocky 9 is broken (references spdlog/fmt/bundled/core.h
+# which does not exist). Build spdlog from source so cmake can find it cleanly.
+RUN cd /tmp \
+    && git clone --depth=1 --branch v1.9.2 https://github.com/gabime/spdlog.git \
+    && cmake -S spdlog -B spdlog/build \
+       -DCMAKE_BUILD_TYPE=Release \
+       -DSPDLOG_BUILD_SHARED=ON \
+       -DCMAKE_INSTALL_PREFIX=/usr/local \
+    && cmake --build spdlog/build -j$(nproc) \
+    && cmake --install spdlog/build \
+    && rm -rf /tmp/spdlog \
+    && ldconfig
+
+RUN pip3.12 install maturin==1.12.2 build scikit-build pybind11
+
+COPY requirements/pyenv-frozen.txt    /build/pyenv-frozen.txt
+COPY cluster/build-all.sh             /build/build-all.sh
+RUN chmod +x /build/build-all.sh
+
+CMD ["/build/build-all.sh"]

@@ -118,31 +118,38 @@ if [[ "${INSTALL_QUANTUM_GPU_PACKAGES:-0}" == "1" ]]; then
     fi
     unset _CUDA_MAX_GCC _MAX_GCC
 
-    # Install cuTENSOR and cuQuantum — try CUDA-major-suffixed package first,
-    # fall back to cu12 if the major-versioned package is not yet on PyPI
-    info "Installing cuTENSOR and cuQuantum (cu${CUDA_MAJOR}) ..."
-    pip install "nvidia-cutensor-cu${CUDA_MAJOR}" 2>/dev/null \
-        || { warn "nvidia-cutensor-cu${CUDA_MAJOR} not found — falling back to cu12"; pip install "nvidia-cutensor-cu12"; }
-    pip install "cuquantum-cu${CUDA_MAJOR}" 2>/dev/null \
-        || { warn "cuquantum-cu${CUDA_MAJOR} not found — falling back to cu12"; pip install "cuquantum-cu12"; }
+    # Install cuQuantum, cuTensorNet, and NVIDIA CUDA runtime libs.
+    # cuTENSOR is pulled in transitively by cutensornet-cu${CUDA_MAJOR}.
+    info "Installing cuQuantum and cuTensorNet (cu${CUDA_MAJOR}) ..."
+    pip install \
+        cuquantum \
+        "cuquantum-cu${CUDA_MAJOR}" \
+        "cutensornet-cu${CUDA_MAJOR}" \
+        nvidia-cublas \
+        nvidia-cuda-nvrtc \
+        nvidia-cuda-runtime \
+        nvidia-cusolver \
+        nvidia-cusparse \
+        nvidia-nvjitlink
 
     # Find installed package directories
-    CUTENSOR_ROOT=$(python3 -c "
-import importlib.util, os
-for pkg in ('nvidia.cutensor', 'cutensor'):
-    spec = importlib.util.find_spec(pkg)
-    if spec and spec.submodule_search_locations:
-        print(list(spec.submodule_search_locations)[0]); break
-" 2>/dev/null)
     CUQUANTUM_ROOT=$(python3 -c "
 import importlib.util
 spec = importlib.util.find_spec('cuquantum')
 print(list(spec.submodule_search_locations)[0])
 " 2>/dev/null)
-    [[ -n "$CUTENSOR_ROOT"  ]] || die "Could not locate cutensor package directory"
+    # cuTENSOR is a transitive dep of cutensornet; locate via nvidia.cutensor or cutensor
+    CUTENSOR_ROOT=$(python3 -c "
+import importlib.util
+for pkg in ('nvidia.cutensor', 'cutensor'):
+    spec = importlib.util.find_spec(pkg)
+    if spec and spec.submodule_search_locations:
+        print(list(spec.submodule_search_locations)[0]); break
+" 2>/dev/null)
     [[ -n "$CUQUANTUM_ROOT" ]] || die "Could not locate cuquantum package directory"
-    info "CUTENSOR_ROOT:  $CUTENSOR_ROOT"
+    [[ -n "$CUTENSOR_ROOT"  ]] || die "Could not locate cutensor package directory"
     info "CUQUANTUM_ROOT: $CUQUANTUM_ROOT"
+    info "CUTENSOR_ROOT:  $CUTENSOR_ROOT"
 
     # Create unversioned .so symlinks — cmake needs libXxx.so without version suffix
     for lib_dir in "${CUTENSOR_ROOT}/lib" "${CUQUANTUM_ROOT}/lib"; do
@@ -164,6 +171,9 @@ print(list(spec.submodule_search_locations)[0])
     git clone --depth=1 --branch build/combined-patches \
         https://github.com/dmeliksetian/qiskit-aer.git "$AER_SRC"
     cd "$AER_SRC"
+
+    # scikit-build and pybind11 are build-time deps for setup.py bdist_wheel
+    pip install scikit-build pybind11
 
     info "Building wheel (CUDA ${CUDA_DOTTED}, arch ${CUDA_ARCH}) — this will take several minutes ..."
     DISABLE_CONAN=ON python3 setup.py bdist_wheel -- \
