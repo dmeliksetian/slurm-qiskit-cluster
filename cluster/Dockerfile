@@ -429,7 +429,8 @@ RUN cd /tmp \
     && git clone --depth=1 --branch v1.9.2 https://github.com/gabime/spdlog.git \
     && cmake -S spdlog -B spdlog/build \
        -DCMAKE_BUILD_TYPE=Release \
-       -DSPDLOG_BUILD_SHARED=ON \
+       -DSPDLOG_BUILD_SHARED=OFF \
+       -DSPDLOG_BUILD_STATIC=ON \
        -DCMAKE_INSTALL_PREFIX=/usr/local \
     && cmake --build spdlog/build -j$(nproc) \
     && cmake --install spdlog/build \

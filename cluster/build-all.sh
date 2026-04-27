@@ -194,6 +194,22 @@ for pkg in ('nvidia.cutensor', 'cutensor'):
 
     cd /
     rm -rf "$AER_SRC"
+
+    # Append cuquantum/cutensor lib paths to pyenv activate so that
+    # libcustatevec.so and libcutensor.so are found when the venv is sourced
+    # (covers both interactive use and verify-script run_in calls).
+    if ! grep -q "cuquantum runtime libraries" /shared/pyenv/bin/activate; then
+        cat >> /shared/pyenv/bin/activate <<'ACTIVATE_APPEND'
+
+# cuquantum/cutensor runtime libraries (added by build-all.sh)
+for _cuq_pkg in cuquantum cutensor; do
+    _cuq_lib="${VIRTUAL_ENV}/lib/python3.12/site-packages/${_cuq_pkg}/lib"
+    [ -d "$_cuq_lib" ] && export LD_LIBRARY_PATH="${_cuq_lib}:${LD_LIBRARY_PATH:-}"
+done
+unset _cuq_pkg _cuq_lib
+ACTIVATE_APPEND
+    fi
+
     success "qiskit-aer (GPU) built and installed"
 fi
 

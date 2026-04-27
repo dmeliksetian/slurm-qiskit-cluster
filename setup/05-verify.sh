@@ -251,28 +251,24 @@ if [[ "$TEST_GPU" -eq 1 ]]; then
 fi
 
 # =============================================================================
-# TEST 7b — quantum-GPU (qg1) — qiskit-aer-gpu import check
+# TEST 7b — quantum-GPU (qg1) — qiskit-aer (GPU build) import check
 # =============================================================================
 if [[ "$TEST_GPU" -eq 1 ]]; then
     section "Quantum-GPU (qg1)"
 
-    # Check for qiskit-aer-gpu via direct dist-info path — faster than pip show
+    # qiskit-aer GPU is built from source (dmeliksetian/qiskit-aer@build/combined-patches)
+    # and installed as 'qiskit-aer' (not 'qiskit-aer-gpu')
     AER_GPU_VER=$(podman exec qg1 bash -c \
-        "ls /shared/pyenv/lib64/python3.12/site-packages/ 2>/dev/null | grep qiskit_aer_gpu | grep dist-info | sed 's/qiskit_aer_gpu-//;s/.dist-info//'")
+        "ls /shared/pyenv/lib64/python3.12/site-packages/ 2>/dev/null | grep '^qiskit_aer-' | grep dist-info | sed 's/qiskit_aer-//;s/.dist-info//'")
     if [[ -z "$AER_GPU_VER" ]]; then
-        warn "qiskit-aer-gpu not installed on qg1 — run: ./setup/02-build-shared.sh --quantum-gpu"
-        warn "Note: qiskit-aer-gpu 0.15.1 is incompatible with Qiskit 2.x (issue #2336)"
-        warn "Install only once a Qiskit 2.x compatible release is published"
+        warn "qiskit-aer (GPU) not installed on qg1 — run: ./setup/02-build-shared.sh --quantum-gpu"
     else
-        # Try importing — will fail with Qiskit 2.x due to removed convert_to_target
         AER_IMPORT=$(run_in qg1 "python3 -c 'import qiskit_aer; print(qiskit_aer.__version__)'" 2>&1)
         if echo "$AER_IMPORT" | grep -qP '^[0-9]+\.[0-9]+'; then
-            pass "qiskit-aer-gpu $AER_GPU_VER importable on qg1"
+            pass "qiskit-aer $AER_GPU_VER (GPU) importable on qg1"
         else
-            # Known incompatibility — warn, don't fail
-            warn "qiskit-aer-gpu $AER_GPU_VER installed but not importable on qg1"
-            warn "Known issue: qiskit-aer-gpu <= 0.15.1 is incompatible with Qiskit 2.x"
-            warn "Tracking: https://github.com/Qiskit/qiskit-aer/issues/2336"
+            warn "qiskit-aer $AER_GPU_VER installed but not importable on qg1"
+            warn "Check: podman exec qg1 python3 -c 'import qiskit_aer'"
         fi
     fi
 fi
