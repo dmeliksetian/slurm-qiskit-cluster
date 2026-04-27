@@ -9,9 +9,9 @@
 #   ./setup/05-verify.sh [--gpu] [--qrmi]
 #
 # Options:
-#   --gpu     Include GPU tests (requires g1 node with NVIDIA GPU)
-#   --qrmi    Include QRMI connectivity test (requires valid credentials
-#             and network access to IBM Quantum / Pasqal)
+#   --gpu     Include GPU tests: cupy on g1, GPU-accelerated Aer simulation on qg1
+#   --qrmi    Run a Bell state circuit on IBM Quantum via QRMI SamplerV2
+#             (requires valid credentials and network access; QPU queue may take minutes)
 #
 # Without options, only local tests are run (no credentials or GPU needed).
 # =============================================================================
@@ -251,24 +251,66 @@ if [[ "$TEST_GPU" -eq 1 ]]; then
 fi
 
 # =============================================================================
-# TEST 7b — quantum-GPU (qg1) — qiskit-aer (GPU build) import check
+# TEST 7b — quantum-GPU (qg1) — GPU-accelerated Aer simulation via Slurm
 # =============================================================================
 if [[ "$TEST_GPU" -eq 1 ]]; then
     section "Quantum-GPU (qg1)"
 
-    # qiskit-aer GPU is built from source (dmeliksetian/qiskit-aer@build/combined-patches)
-    # and installed as 'qiskit-aer' (not 'qiskit-aer-gpu')
     AER_GPU_VER=$(podman exec qg1 bash -c \
         "ls /shared/pyenv/lib64/python3.12/site-packages/ 2>/dev/null | grep '^qiskit_aer-' | grep dist-info | sed 's/qiskit_aer-//;s/.dist-info//'")
     if [[ -z "$AER_GPU_VER" ]]; then
         warn "qiskit-aer (GPU) not installed on qg1 — run: ./setup/02-build-shared.sh --quantum-gpu"
     else
-        AER_IMPORT=$(run_in qg1 "python3 -c 'import qiskit_aer; print(qiskit_aer.__version__)'" 2>&1)
-        if echo "$AER_IMPORT" | grep -qP '^[0-9]+\.[0-9]+'; then
-            pass "qiskit-aer $AER_GPU_VER (GPU) importable on qg1"
+        QG1_HOST_TMP=$(mktemp /tmp/verify-qg1-XXXXXX.sh)
+        cat > "$QG1_HOST_TMP" << 'SCRIPTEOF'
+#!/bin/bash
+source /shared/pyenv/bin/activate
+python3 - << PYEOF
+from qiskit import QuantumCircuit, transpile
+from qiskit_aer import AerSimulator
+
+qc = QuantumCircuit(2)
+qc.h(0)
+qc.cx(0, 1)
+qc.measure_all()
+
+sim = AerSimulator(method='statevector', device='GPU')
+tqc = transpile(qc, sim)
+result = sim.run(tqc, shots=1000).result()
+counts = result.get_counts()
+device = result.results[0].metadata.get('device', 'unknown')
+print("device: {}".format(device))
+print("counts: {}".format(counts))
+assert set(counts.keys()).issubset({"00", "11"}), "Unexpected counts: {}".format(counts)
+print("PASS")
+PYEOF
+SCRIPTEOF
+        chmod +x "$QG1_HOST_TMP"
+        QG1_TMP=/tmp/verify-qg1-script.sh
+        podman cp "$QG1_HOST_TMP" "slurmctld:${QG1_TMP}"
+        rm -f "$QG1_HOST_TMP"
+
+        QG1_JOB_ID=$(podman exec slurmctld bash -c \
+            "sbatch --job-name=verify-qg1 --partition=quantum_gpu --output=/tmp/verify-qg1-%j.out ${QG1_TMP}" \
+            2>/dev/null | grep -oP "(?<=Submitted batch job )\d+")
+
+        if [[ -z "$QG1_JOB_ID" ]]; then
+            fail "qg1 GPU simulation job submission failed"
         else
-            warn "qiskit-aer $AER_GPU_VER installed but not importable on qg1"
-            warn "Check: podman exec qg1 python3 -c 'import qiskit_aer'"
+            pass "qg1 GPU simulation job $QG1_JOB_ID submitted"
+            for i in $(seq 1 30); do
+                sleep 2
+                STATE=$(podman exec slurmctld bash -c "squeue -j $QG1_JOB_ID -h -o %T 2>/dev/null")
+                [[ -z "$STATE" ]] && break
+            done
+            OUT=$(podman exec qg1 bash -c "cat /tmp/verify-qg1-${QG1_JOB_ID}.out 2>/dev/null || true")
+            if echo "$OUT" | grep -q "PASS"; then
+                pass "qiskit-aer $AER_GPU_VER GPU simulation succeeded on qg1"
+                info "$(echo "$OUT" | grep -E 'device:|counts:')"
+            else
+                fail "qg1 GPU simulation did not produce expected output"
+                info "$OUT"
+            fi
         fi
     fi
 fi
@@ -277,20 +319,51 @@ fi
 # TEST 8 — QRMI connectivity (optional)
 # =============================================================================
 if [[ "$TEST_QRMI" -eq 1 ]]; then
-    section "QRMI connectivity"
+    section "QRMI — Bell state on IBM Quantum"
 
-    # Write test script on host and copy into slurmctld — avoids all quoting issues
     QRMI_HOST_TMP=$(mktemp /tmp/verify-qrmi-XXXXXX.sh)
     cat > "$QRMI_HOST_TMP" << 'SCRIPTEOF'
 #!/bin/bash
 source /shared/pyenv/bin/activate
 python3 - << PYEOF
+from qiskit import QuantumCircuit
+from qiskit.transpiler.preset_passmanagers import generate_preset_pass_manager
 from qrmi.primitives import QRMIService
+from qrmi.primitives.ibm import SamplerV2, get_target
+
 service = QRMIService()
 resources = service.resources()
+if not resources:
+    raise ValueError("No quantum resources available — check credentials")
 print("Backends found: {}".format(len(resources)))
 for r in resources:
     print("  - {}".format(r.resource_id()))
+
+qrmi = resources[0]
+print("Running on: {}".format(qrmi.resource_id()))
+
+target = get_target(qrmi)
+
+qc = QuantumCircuit(2)
+qc.h(0)
+qc.cx(0, 1)
+qc.measure_all()
+
+pm = generate_preset_pass_manager(optimization_level=1, target=target)
+isa_circuit = pm.run(qc)
+
+sampler = SamplerV2(qrmi, options={"default_shots": 100})
+job = sampler.run([(isa_circuit,)])
+print("Job ID: {}".format(job.job_id()))
+
+result = job.result()
+counts = result[0].data.meas.get_counts()
+print("counts: {}".format(counts))
+total = sum(counts.values())
+signal = counts.get("00", 0) + counts.get("11", 0)
+fidelity = signal / total
+print("fidelity: {:.1%}".format(fidelity))
+assert fidelity > 0.85, "Bell state fidelity too low: {:.1%}".format(fidelity)
 print("PASS")
 PYEOF
 SCRIPTEOF
@@ -299,21 +372,40 @@ SCRIPTEOF
     podman cp "$QRMI_HOST_TMP" "slurmctld:${QRMI_TMP}"
     rm -f "$QRMI_HOST_TMP"
 
-    JOB_ID=$(podman exec slurmctld bash -c         "sbatch --job-name=verify-qrmi --partition=quantum --qpu=ibm_torino --output=/tmp/verify-qrmi-%j.out ${QRMI_TMP}"         2>/dev/null | grep -oP "(?<=Submitted batch job )\d+")
+    ALL_QPUS=$(podman exec q1 bash -c \
+        "python3 -c \"import json; cfg=json.load(open('/etc/slurm/qrmi_config.json')); print(','.join(r['name'] for r in cfg['resources']))\"" \
+        2>/dev/null)
 
-    if [[ -z "$JOB_ID" ]]; then
+    if [[ -z "$ALL_QPUS" ]]; then
+        fail "No QPUs found in qrmi_config.json — check credentials setup"
+        QPU_SKIP=1
+    else
+        info "Configured QPUs: $ALL_QPUS (job will use first accessible)"
+        QPU_SKIP=0
+    fi
+
+    JOB_ID=""
+    if [[ "${QPU_SKIP:-0}" -eq 0 ]]; then
+    JOB_ID=$(podman exec slurmctld bash -c \
+        "sbatch --job-name=verify-qrmi --partition=quantum --qpu=${ALL_QPUS} --output=/tmp/verify-qrmi-%j.out ${QRMI_TMP}" \
+        2>/dev/null | grep -oP "(?<=Submitted batch job )\d+")
+    fi
+
+    if [[ "${QPU_SKIP:-0}" -eq 1 ]]; then
+        : # already reported above
+    elif [[ -z "$JOB_ID" ]]; then
         fail "QRMI job submission failed"
     else
-        pass "QRMI job $JOB_ID submitted to quantum partition"
-        for i in $(seq 1 20); do
-            sleep 3
+        pass "QRMI job $JOB_ID submitted to quantum partition (QPU queue — may take several minutes)"
+        for i in $(seq 1 120); do
+            sleep 5
             STATE=$(podman exec slurmctld bash -c "squeue -j $JOB_ID -h -o %T 2>/dev/null")
             [[ -z "$STATE" ]] && break
         done
         OUT=$(podman exec q1 bash -c "cat /tmp/verify-qrmi-${JOB_ID}.out 2>/dev/null || true")
         if echo "$OUT" | grep -q "PASS"; then
-            pass "QRMI service reachable via Slurm job"
-            echo "$OUT" | grep -E "Backends found|  -" | while read -r line; do info "$line"; done
+            pass "Bell state executed on IBM Quantum via QRMI"
+            echo "$OUT" | grep -E "Running on:|Backends found|  -|counts:" | while read -r line; do info "$line"; done
         else
             fail "QRMI job did not produce expected output"
             info "$OUT"
