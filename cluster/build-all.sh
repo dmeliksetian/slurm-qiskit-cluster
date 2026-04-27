@@ -45,10 +45,14 @@ source /shared/pyenv/bin/activate
 pip install --upgrade pip --quiet
 
 # ── Step 2: Install pinned packages ───────────────────────────────────────────
-info "Installing pinned packages from pyenv-frozen.txt ..."
-info "(this will take several minutes — pyscf, jax, ffsim are large)"
-pip install -r /build/pyenv-frozen.txt 
-success "Pinned packages installed"
+if [[ "${PACKAGES_ONLY:-0}" == "1" ]]; then
+    info "Skipping pyenv-frozen.txt (--packages-only) — adding GPU packages only"
+else
+    info "Installing pinned packages from pyenv-frozen.txt ..."
+    info "(this will take several minutes — pyscf, jax, ffsim are large)"
+    pip install -r /build/pyenv-frozen.txt
+    success "Pinned packages installed"
+fi
 
 # ── Step 2b: Install GPU packages into pyenv ──────────────────────────────────
 if [[ "${INSTALL_GPU_PACKAGES:-0}" == "1" ]]; then
