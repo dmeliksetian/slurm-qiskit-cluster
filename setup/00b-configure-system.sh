@@ -117,6 +117,7 @@ IS_WSL2=0
 GPU_DEVICE=""
 GPU_TYPE=""
 CUDA_VER=""
+CUDA_ARCH=""
 WSL2_LIB_MOUNT=""
 
 if [[ "$NO_GPU" -eq 1 ]]; then
@@ -148,6 +149,11 @@ else
         # CUDA: "12.9" → "12-9"
         CUDA_FULL=$(nvidia-smi 2>/dev/null | grep -oP 'CUDA Version: \K[\d.]+' | head -1 || true)
         [[ -n "$CUDA_FULL" ]] && CUDA_VER=$(echo "$CUDA_FULL" | tr '.' '-')
+
+        # Compute capability: "12.0" → "120"
+        COMPUTE_CAP=$(nvidia-smi --query-gpu=compute_cap --format=csv,noheader 2>/dev/null | head -1 | tr -d ' ')
+        [[ -n "$COMPUTE_CAP" ]] && CUDA_ARCH=$(echo "$COMPUTE_CAP" | tr -d '.')
+        [[ -n "$CUDA_ARCH" ]] && info "Compute capability:    $COMPUTE_CAP  (CUDA_ARCH: $CUDA_ARCH)"
 
         # Bare metal device node
         if [[ "$IS_WSL2" -eq 0 ]]; then
@@ -188,7 +194,8 @@ if [[ -n "$WSL2_LIB_MOUNT" ]]; then
 else
     echo "  @@WSL2_LIB_MOUNT@@  = (line omitted — bare metal)"
 fi
-[[ -n "$CUDA_VER" ]] && echo "  CUDA_VERSION (.env)  = $CUDA_VER"
+[[ -n "$CUDA_VER"  ]] && echo "  CUDA_VERSION (.env)  = $CUDA_VER"
+[[ -n "$CUDA_ARCH" ]] && echo "  CUDA_ARCH (.env)     = $CUDA_ARCH"
 echo "  SLURM_CPUS_PER_NODE  = $CPU_COUNT"
 echo ""
 
@@ -285,7 +292,8 @@ if [[ -f "$ENV_FILE" ]]; then
     }
 
     upsert_env "SLURM_CPUS_PER_NODE" "$CPU_COUNT"
-    [[ -n "$CUDA_VER" ]] && upsert_env "CUDA_VERSION" "$CUDA_VER"
+    [[ -n "$CUDA_VER"  ]] && upsert_env "CUDA_VERSION" "$CUDA_VER"
+    [[ -n "$CUDA_ARCH" ]] && upsert_env "CUDA_ARCH"    "$CUDA_ARCH"
 
     success ".env updated"
 else

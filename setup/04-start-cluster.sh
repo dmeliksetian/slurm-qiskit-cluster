@@ -23,6 +23,10 @@ CLUSTER_DIR="$REPO_ROOT/cluster"
 SHARED_DIR="$REPO_ROOT/shared"
 ENV_FILE="$REPO_ROOT/.env"
 
+# ── Ensure podman-compose is available (may live in project .venv) ───────────
+VENV_BIN="$REPO_ROOT/.venv/bin"
+[[ -d "$VENV_BIN" ]] && export PATH="$VENV_BIN:$PATH"
+
 # ── Colours ───────────────────────────────────────────────────────────────────
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'
 CYAN='\033[0;36m'; BOLD='\033[1m'; NC='\033[0m'

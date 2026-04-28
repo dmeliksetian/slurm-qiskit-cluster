@@ -2,7 +2,13 @@
 # =============================================================================
 # 00-check-prereqs.sh
 # Validates the host environment before building or starting the cluster.
-# Safe to run multiple times — makes no changes to the system.
+# If podman-compose is not found on PATH or in .venv, creates .venv and
+# installs it automatically. Safe to re-run.
+#
+# Host prerequisites (must be installed manually before running this script):
+#   - git
+#   - podman >= 4.0
+#   - python3 + pip
 #
 # Usage:
 #   ./setup/00-check-prereqs.sh
@@ -52,12 +58,6 @@ else
     echo "      Official docs:  https://podman.io/docs/installation"
 fi
 
-if command -v podman-compose &>/dev/null || podman compose version &>/dev/null 2>&1; then
-    pass "podman compose available"
-else
-    fail "podman compose not found"
-    echo "    Install: pip install podman-compose  OR  dnf install podman-compose"
-fi
 
 # ── Git ───────────────────────────────────────────────────────────────────────
 section "Git and submodules"
@@ -89,16 +89,42 @@ else
     echo "    Run: git submodule update --init --recursive"
 fi
 
-# ── Python ────────────────────────────────────────────────────────────────────
-section "Python"
+# ── Python and host environment ───────────────────────────────────────────────
+section "Python and host environment"
 
-if command -v python3.12 &>/dev/null; then
-    PY_VER=$(python3.12 --version)
-    pass "python3.12 found: $PY_VER"
+PYTHON3=""
+if command -v python3 &>/dev/null; then
+    PYTHON3="python3"
+    pass "python3 found: $(python3 --version)"
 else
-    warn "python3.12 not found on host"
-    echo "    python3.12 is only required on the host if you want to run"
-    echo "    job scripts locally. The cluster containers have their own Python."
+    fail "python3 not found — install with: sudo apt install python3  OR  sudo dnf install python3"
+    echo "    python3 is required to create the .venv for podman-compose."
+fi
+
+if command -v pip3 &>/dev/null || command -v pip &>/dev/null; then
+    pass "pip found"
+else
+    fail "pip not found — install with: sudo apt install python3-pip  OR  sudo dnf install python3-pip"
+fi
+
+# podman-compose: check system PATH, then .venv/bin, then auto-create .venv
+VENV_DIR="$REPO_ROOT/.venv"
+if command -v podman-compose &>/dev/null; then
+    PC_VER=$(podman-compose --version 2>/dev/null | head -1 || true)
+    pass "podman-compose found (system): $PC_VER"
+elif [[ -x "$VENV_DIR/bin/podman-compose" ]]; then
+    PC_VER=$("$VENV_DIR/bin/podman-compose" --version 2>/dev/null | head -1 || true)
+    pass "podman-compose found in .venv: $PC_VER"
+elif [[ -n "$PYTHON3" ]]; then
+    echo -e "  ${CYAN}→${NC}  podman-compose not found — creating .venv and installing ..."
+    "$PYTHON3" -m venv "$VENV_DIR"
+    "$VENV_DIR/bin/pip" install --quiet podman-compose
+    PC_VER=$("$VENV_DIR/bin/podman-compose" --version 2>/dev/null | head -1 || true)
+    pass "podman-compose installed in .venv: $PC_VER"
+    echo "      Subsequent setup scripts add .venv/bin to PATH automatically."
+else
+    fail "podman-compose not found and python3 unavailable — cannot auto-install"
+    echo "    Install manually: pip install podman-compose  OR  dnf install podman-compose"
 fi
 
 # ── Credentials ───────────────────────────────────────────────────────────────
@@ -122,11 +148,34 @@ fi
 # ── GPU (optional) ────────────────────────────────────────────────────────────
 section "GPU (optional — required for g1 and qg1 nodes)"
 
-if [[ -e /dev/dxg ]]; then
-    pass "/dev/dxg found — WSL2 NVIDIA GPU passthrough available"
-elif command -v nvidia-smi &>/dev/null; then
-    GPU=$(nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null | head -1)
-    pass "nvidia-smi found: $GPU"
+HAS_GPU=0
+if [[ -e /dev/dxg ]] || (command -v nvidia-smi &>/dev/null && nvidia-smi &>/dev/null 2>&1); then
+    HAS_GPU=1
+fi
+
+if [[ "$HAS_GPU" -eq 1 ]]; then
+    if [[ -e /dev/dxg ]]; then
+        pass "/dev/dxg found — WSL2 NVIDIA GPU passthrough available"
+    fi
+    GPU=$(nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null | head -1 || true)
+    [[ -n "$GPU" ]] && pass "GPU: $GPU"
+
+    # CUDA version
+    CUDA_FULL=$(nvidia-smi 2>/dev/null | grep -oP 'CUDA Version: \K[\d.]+' | head -1 || true)
+    CUDA_MAJOR=$(echo "${CUDA_FULL:-0}" | cut -d. -f1)
+    if [[ -n "$CUDA_FULL" ]]; then
+        if [[ "$CUDA_MAJOR" -ge 11 && "$CUDA_MAJOR" -le 13 ]]; then
+            pass "CUDA version: $CUDA_FULL (supported)"
+        elif [[ "$CUDA_MAJOR" -gt 13 ]]; then
+            warn "CUDA version: $CUDA_FULL — newer than tested range (11–13), may work but untested"
+        else
+            warn "CUDA version: $CUDA_FULL — older than supported range (11–13)"
+        fi
+    fi
+
+    # Compute capability
+    COMPUTE_CAP=$(nvidia-smi --query-gpu=compute_cap --format=csv,noheader 2>/dev/null | head -1 | tr -d ' ' || true)
+    [[ -n "$COMPUTE_CAP" ]] && pass "Compute capability: $COMPUTE_CAP"
 else
     warn "No GPU detected — g1 and qg1 nodes will not function"
     echo "    GPU is optional. c1, c2, q1 work without it."
