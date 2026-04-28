@@ -257,7 +257,7 @@ if [[ "$TEST_GPU" -eq 1 ]]; then
     section "Quantum-GPU (qg1)"
 
     AER_GPU_VER=$(podman exec qg1 bash -c \
-        "ls /shared/pyenv/lib64/python3.12/site-packages/ 2>/dev/null | grep '^qiskit_aer-' | grep dist-info | sed 's/qiskit_aer-//;s/.dist-info//'")
+        "source /shared/pyenv/bin/activate && pip show qiskit-aer 2>/dev/null | grep '^Version:' | awk '{print $2}'")
     if [[ -z "$AER_GPU_VER" ]]; then
         warn "qiskit-aer (GPU) not installed on qg1 — run: ./setup/02-build-shared.sh --quantum-gpu"
     else

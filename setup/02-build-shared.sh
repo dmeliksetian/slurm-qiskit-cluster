@@ -82,6 +82,11 @@ if ! podman image exists "${BUILDER_IMAGE}:${IMAGE_TAG}"; then
     fi
 fi
 
+# ── GPU flags require CUDA_VERSION from .env (set by 00b-configure-system.sh) ─
+if [[ "$GPU" -eq 1 || "$QUANTUM_GPU" -eq 1 ]]; then
+    [[ -n "${CUDA_VERSION:-}" ]] || die "CUDA_VERSION not set — run ./setup/00b-configure-system.sh to detect your GPU"
+fi
+
 # ── Validate submodules are populated ─────────────────────────────────────────
 [[ -f "$SHARED_DIR/qrmi/Cargo.toml" ]] \
     || die "shared/qrmi submodule not initialised\n       Run: git submodule update --init --recursive"
@@ -131,7 +136,7 @@ podman run --rm \
     -e INSTALL_GPU_PACKAGES="${GPU}" \
     -e INSTALL_QUANTUM_GPU_PACKAGES="${QUANTUM_GPU}" \
     -e PACKAGES_ONLY="${PACKAGES_ONLY}" \
-    -e CUDA_VERSION="${CUDA_VERSION:-12-9}" \
+    -e CUDA_VERSION="${CUDA_VERSION:-}" \
     -e CUDA_ARCH="${CUDA_ARCH:-}" \
     "${BUILDER_IMAGE}:${IMAGE_TAG}"
 

@@ -99,7 +99,7 @@ if [[ "$QUANTUM_GPU" -eq 1 ]]; then
         --build-arg GOSU_VERSION="${GOSU_VERSION:-1.17}" \
         --build-arg MY_PMIX_VERSION="${MY_PMIX_VERSION:-4.2.9}" \
         --build-arg OPENMPI_VERSION="${OPENMPI_VERSION:-4.1.6}" \
-        --build-arg CUDA_VERSION="${CUDA_VERSION:-12-9}" \
+        --build-arg CUDA_VERSION="${CUDA_VERSION}" \
         --file "$CLUSTER_DIR/Dockerfile" \
         "$REPO_ROOT"
     success "builder-gpu image built"

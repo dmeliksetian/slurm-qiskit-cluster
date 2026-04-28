@@ -56,7 +56,8 @@ fi
 
 # ── Step 2b: Install GPU packages into pyenv ──────────────────────────────────
 if [[ "${INSTALL_GPU_PACKAGES:-0}" == "1" ]]; then
-    CUDA_MAJOR=$(echo "${CUDA_VERSION:-12-0}" | cut -d'-' -f1)
+    [[ -n "${CUDA_VERSION:-}" ]] || die "CUDA_VERSION not set — run ./setup/00b-configure-system.sh to detect your GPU"
+    CUDA_MAJOR=$(echo "$CUDA_VERSION" | cut -d'-' -f1)
     CUPY_PACKAGE="cupy-cuda${CUDA_MAJOR}x"
     info "Installing GPU packages (${CUPY_PACKAGE}, qiskit-addon-dice-solver) ..."
     pip install "${CUPY_PACKAGE}"
@@ -209,8 +210,9 @@ for pkg in ('nvidia.cutensor', 'cutensor'):
 
 # cuquantum/cutensor runtime libraries (added by build-all.sh)
 for _cuq_pkg in cuquantum cutensor; do
-    _cuq_lib="${VIRTUAL_ENV}/lib/python3.12/site-packages/${_cuq_pkg}/lib"
-    [ -d "$_cuq_lib" ] && export LD_LIBRARY_PATH="${_cuq_lib}:${LD_LIBRARY_PATH:-}"
+    for _cuq_lib in "${VIRTUAL_ENV}"/lib/python3.*/site-packages/"${_cuq_pkg}"/lib; do
+        [ -d "$_cuq_lib" ] && export LD_LIBRARY_PATH="${_cuq_lib}:${LD_LIBRARY_PATH:-}"
+    done
 done
 unset _cuq_pkg _cuq_lib
 ACTIVATE_APPEND
@@ -280,8 +282,12 @@ echo "    qiskit-ibm-runtime:$(pip show qiskit-ibm-runtime | grep Version || ech
 echo "    qiskit-addon-sqd:  $(pip show qiskit-addon-sqd   | grep '^Version' || echo NOT FOUND)"
 echo "    ffsim:             $(pip show ffsim               | grep Version || echo NOT FOUND)"
 echo "    pyscf:             $(pip show pyscf               | grep Version || echo NOT FOUND)"
-_CUPY_PKG="cupy-cuda$(echo "${CUDA_VERSION:-12-0}" | cut -d'-' -f1)x"
-echo "    cupy:              $(pip show "$_CUPY_PKG"              | grep Version || echo NOT FOUND)"
+if [[ -n "${CUDA_VERSION:-}" ]]; then
+    _CUPY_PKG="cupy-cuda$(echo "$CUDA_VERSION" | cut -d'-' -f1)x"
+    echo "    cupy:              $(pip show "$_CUPY_PKG" | grep Version || echo NOT FOUND)"
+else
+    echo "    cupy:              N/A (no GPU build)"
+fi
 echo "    dice-solver:       $(pip show qiskit-addon-dice-solver | grep Version || echo NOT FOUND)"
 echo "    qiskit-aer(-gpu):  $(pip show qiskit-aer               | grep Version || echo NOT FOUND)"
 echo ""
