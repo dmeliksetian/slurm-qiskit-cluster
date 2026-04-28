@@ -17,10 +17,18 @@ git config core.autocrlf input
 git checkout -- .gitignore
 ```
 
-**Switch to branch and sync submodules:**
+**Clone and check out a release:**
 ```bash
-git fetch origin
-git switch wip/aer-gpu-source-build   # or main once merged
+git clone https://github.com/dmeliksetian/slurm-qiskit-cluster.git
+cd slurm-qiskit-cluster
+git checkout v0.2.0
+git submodule update --init --recursive
+```
+
+**Or update an existing clone to a new release:**
+```bash
+git fetch --tags
+git checkout v0.2.0
 git submodule update --init --recursive
 ```
 
@@ -50,10 +58,10 @@ git submodule update --init --recursive
 ./setup/05-verify.sh --qrmi
 ```
 
-### C. Upgrade existing cluster — with GPU (from main branch)
+### C. Upgrade existing cluster — with GPU
 ```bash
-git fetch origin
-git switch wip/aer-gpu-source-build       # or main once merged
+git fetch --tags
+git checkout v0.2.0
 git submodule update --init --recursive
 ./setup/00b-configure-system.sh           # if CUDA_VERSION/CUDA_ARCH not yet in .env
 ./setup/01-build-images.sh --quantum-gpu
@@ -62,10 +70,10 @@ podman restart g1 qg1
 ./setup/05-verify.sh --gpu --qrmi
 ```
 
-### D. Upgrade existing cluster — no GPU (from main branch)
+### D. Upgrade existing cluster — no GPU
 ```bash
-git fetch origin
-git switch wip/aer-gpu-source-build       # or main once merged
+git fetch --tags
+git checkout v0.2.0
 git submodule update --init --recursive
 ./setup/05-verify.sh --qrmi               # nothing to rebuild
 ```
@@ -95,7 +103,7 @@ All nodes share the same `etc_slurm` volume — one copy updates everything. No 
 
 ### Install or upgrade specific packages without full rebuild
 ```bash
-./utilities/install-packages.sh cupy-cuda12x==14.0.1
+./utilities/install-packages.sh cupy-cuda12x           # example: add or upgrade a package
 ./utilities/install-packages.sh --from-file requirements/gpu-extras.txt
 ```
 Skips pyenv-frozen.txt and qrmi/SPANK rebuild. Running containers pick up changes immediately.
