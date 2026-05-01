@@ -80,6 +80,10 @@ JobAcctGatherFrequency=30
 AccountingStorageType=accounting_storage/slurmdbd
 AccountingStorageHost=slurmdbd
 AccountingStoragePort=6819
+# AccountingStorageTRES — list of resources tracked per job in sacct.
+# gres/gpu and gres/gpu:@@GPU_TYPE@@ enable per-job GPU accounting.
+# gres/qpu enables per-job QPU accounting via the QRMI SPANK plugin.
+AccountingStorageTRES=cpu,mem,energy,node,billing,fs/disk,vmem,pages,gres/gpu,gres/gpu:@@GPU_TYPE@@,gres/qpu
 #
 # COMPUTE NODES
 # @@CPU_COUNT@@        — total logical CPUs  (detected by 00b-configure-system.sh)
@@ -94,8 +98,10 @@ NodeName=qg1 CPUs=@@CPU_COUNT@@ RealMemory=@@MEM_MB@@ Gres=gpu:@@GPU_TYPE@@:1 St
 
 #
 # PARTITIONS
-PartitionName=normal Default=yes Nodes=c[1-2] Priority=50 DefMemPerCPU=500 Shared=NO MaxNodes=5 MaxTime=5-00:00:00 DefaultTime=5-00:00:00 State=UP
+# quantum partition has a 30-minute hard cap as a soft fence against
+# runaway QPU jobs (typical SQD execution is 2-5 minutes).
+PartitionName=normal Default=yes Nodes=c[1-2] Priority=50 DefMemPerCPU=500 OverSubscribe=NO MaxNodes=5 MaxTime=5-00:00:00 DefaultTime=5-00:00:00 State=UP
 PartitionName=gpu_only Nodes=g1 MaxTime=INFINITE State=UP
 NodeName=q1 CPUs=1 RealMemory=1000 Gres=qpu:1 State=UNKNOWN
-PartitionName=quantum Nodes=q1 MaxTime=INFINITE State=UP
+PartitionName=quantum Nodes=q1 MaxTime=00:30:00 DefaultTime=00:10:00 State=UP
 PartitionName=quantum_gpu Nodes=qg1 MaxTime=INFINITE State=UP
