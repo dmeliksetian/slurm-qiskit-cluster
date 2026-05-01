@@ -11,7 +11,7 @@ cluster/docker-compose.yml
 # Shared volume contents — built at runtime, not tracked
 shared/pyenv/
 shared/data/
-
+shared/examples/
 # QRMI build artifacts
 shared/qrmi/target/
 
