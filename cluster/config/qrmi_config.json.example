@@ -18,7 +18,7 @@
     "    - Get your API key at: https://quantum.cloud.ibm.com",
     "    - Backends available: shared simulators and limited real hardware",
     "    - This is the most common starting point",
-    "    - It requires to set QRMI_IBM_QRS_SESSION_MODE=batch
+    "    - It requires to set QRMI_IBM_QRS_SESSION_MODE=batch",
     "",
     "  PAID / RESERVED (IBM Quantum Direct Access)",
     "    - Access via: direct-access",
@@ -50,7 +50,7 @@
         "QRMI_IBM_QRS_IAM_ENDPOINT": "https://iam.cloud.ibm.com",
         "QRMI_IBM_QRS_IAM_APIKEY": "<YOUR IAM APIKEY>",
         "QRMI_IBM_QRS_SERVICE_CRN": "<YOUR IQP INSTANCE CRN>",
-        "QRMI_IBM_QRS_SESSION_MODE"="batch"
+        "QRMI_IBM_QRS_SESSION_MODE": "batch"
       }
     },
 
@@ -62,8 +62,8 @@
         "QRMI_IBM_QRS_ENDPOINT": "https://quantum.cloud.ibm.com/api/v1",
         "QRMI_IBM_QRS_IAM_ENDPOINT": "https://iam.cloud.ibm.com",
         "QRMI_IBM_QRS_IAM_APIKEY": "<YOUR IAM APIKEY>",
-        "QRMI_IBM_QRS_SERVICE_CRN": "<YOUR SECOND IQP INSTANCE CRN>"
-        "QRMI_IBM_QRS_SESSION_MODE"="batch"
+        "QRMI_IBM_QRS_SERVICE_CRN": "<YOUR SECOND IQP INSTANCE CRN>",
+        "QRMI_IBM_QRS_SESSION_MODE": "batch"
       }
     },
 
