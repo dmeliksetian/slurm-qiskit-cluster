@@ -34,6 +34,7 @@ x-build-common: &build-common
     OPENMPI_VERSION: ${OPENMPI_VERSION:-4.1.6}
 
 x-compute-common: &compute-common
+  init: true
   volumes:
     - shared:/shared
     - etc_munge:/etc/munge
@@ -145,6 +146,7 @@ services:
     hostname: g1
     container_name: g1
     command: slurmd
+    init: true
     volumes:
       - shared:/shared
       - etc_munge:/etc/munge
@@ -175,6 +177,7 @@ services:
     hostname: qg1
     container_name: qg1
     command: slurmd
+    init: true
     volumes:
       - shared:/shared
       - etc_munge:/etc/munge
