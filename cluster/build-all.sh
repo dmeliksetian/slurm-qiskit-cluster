@@ -188,7 +188,7 @@ for pkg in ('nvidia.cutensor', 'cutensor'):
     pip install scikit-build pybind11
 
     info "Building wheel (CUDA ${CUDA_DOTTED}, arch ${CUDA_ARCH}) — this will take several minutes ..."
-    DISABLE_CONAN=ON python3 setup.py bdist_wheel -- \
+    python3 setup.py bdist_wheel -- \
         -DAER_THRUST_BACKEND=CUDA \
         -DCMAKE_CUDA_COMPILER="${NVCC_PATH}" \
         -DCMAKE_CUDA_ARCHITECTURES="${CUDA_ARCH}" \
