@@ -380,36 +380,59 @@ SCRIPTEOF
         fail "No QPUs found in qrmi_config.json — check credentials setup"
         QPU_SKIP=1
     else
-        info "Configured QPUs: $ALL_QPUS (job will use first accessible)"
+        info "Configured QPUs: $ALL_QPUS (tried in order; paused or inaccessible systems are skipped)"
         QPU_SKIP=0
     fi
 
-    JOB_ID=""
+    # The SPANK plugin needs every QPU named in --qpu, so a single paused
+    # system would fail a job that lists all of them. Try the QPUs one at a
+    # time instead: one that is not accessible is a warning, and the test
+    # passes as soon as one QPU runs the circuit.
+    QRMI_TIMEOUT="${QRMI_TIMEOUT:-1800}"   # seconds to wait for each job
     if [[ "${QPU_SKIP:-0}" -eq 0 ]]; then
-    JOB_ID=$(podman exec slurmctld bash -c \
-        "sbatch --job-name=verify-qrmi --partition=quantum --qpu=${ALL_QPUS} --output=/tmp/verify-qrmi-%j.out ${QRMI_TMP}" \
-        2>/dev/null | grep -oP "(?<=Submitted batch job )\d+")
-    fi
+        QRMI_DONE=0
+        for QPU in ${ALL_QPUS//,/ }; do
+            JOB_ID=$(podman exec slurmctld bash -c \
+                "sbatch --job-name=verify-qrmi --partition=quantum --qpu=${QPU} --output=/tmp/verify-qrmi-%j.out ${QRMI_TMP}" \
+                2>/dev/null | grep -oP "(?<=Submitted batch job )\d+")
+            if [[ -z "$JOB_ID" ]]; then
+                fail "QRMI job submission failed for $QPU"
+                QRMI_DONE=1
+                break
+            fi
+            info "QRMI job $JOB_ID submitted for $QPU (QPU queue — may take several minutes)"
 
-    if [[ "${QPU_SKIP:-0}" -eq 1 ]]; then
-        : # already reported above
-    elif [[ -z "$JOB_ID" ]]; then
-        fail "QRMI job submission failed"
-    else
-        pass "QRMI job $JOB_ID submitted to quantum partition (QPU queue — may take several minutes)"
-        for i in $(seq 1 120); do
-            sleep 5
-            STATE=$(podman exec slurmctld bash -c "squeue -j $JOB_ID -h -o %T 2>/dev/null")
-            [[ -z "$STATE" ]] && break
+            STATE=""
+            for ((waited = 0; waited < QRMI_TIMEOUT; waited += 5)); do
+                sleep 5
+                STATE=$(podman exec slurmctld bash -c "squeue -j $JOB_ID -h -o %T 2>/dev/null")
+                [[ -z "$STATE" ]] && break
+            done
+            if [[ -n "$STATE" ]]; then
+                podman exec slurmctld scancel "$JOB_ID" &>/dev/null || true
+                fail "QRMI job $JOB_ID on $QPU still $STATE after ${QRMI_TIMEOUT}s — cancelled (set QRMI_TIMEOUT to wait longer)"
+                QRMI_DONE=1
+                break
+            fi
+
+            OUT=$(podman exec q1 bash -c "cat /tmp/verify-qrmi-${JOB_ID}.out 2>/dev/null || true")
+            if echo "$OUT" | grep -q "PASS"; then
+                pass "Bell state executed on IBM Quantum via QRMI ($QPU)"
+                echo "$OUT" | grep -E "Running on:|Backends found|  -|counts:" | while read -r line; do info "$line"; done
+                QRMI_DONE=1
+                break
+            elif echo "$OUT" | grep -qE "is not accessible|failed to acquire resource"; then
+                warn "$QPU is not accessible (paused or offline?) — trying the next QPU"
+            else
+                fail "QRMI job on $QPU did not produce expected output"
+                info "$OUT"
+                info "Check credentials in /etc/slurm/qrmi_config.json on slurmctld and q1"
+                QRMI_DONE=1
+                break
+            fi
         done
-        OUT=$(podman exec q1 bash -c "cat /tmp/verify-qrmi-${JOB_ID}.out 2>/dev/null || true")
-        if echo "$OUT" | grep -q "PASS"; then
-            pass "Bell state executed on IBM Quantum via QRMI"
-            echo "$OUT" | grep -E "Running on:|Backends found|  -|counts:" | while read -r line; do info "$line"; done
-        else
-            fail "QRMI job did not produce expected output"
-            info "$OUT"
-            info "Check credentials in /etc/slurm/qrmi_config.json on slurmctld and q1"
+        if [[ "$QRMI_DONE" -eq 0 ]]; then
+            fail "No accessible QPU among: $ALL_QPUS"
         fi
     fi
 fi
