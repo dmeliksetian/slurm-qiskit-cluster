@@ -184,11 +184,26 @@ for pkg in ('nvidia.cutensor', 'cutensor'):
     git checkout --quiet "$AER_REF"
     info "qiskit-aer source: $(git describe --tags --always) ($(git rev-parse --short HEAD))"
 
-    # scikit-build and pybind11 are build-time deps for setup.py bdist_wheel
-    pip install scikit-build pybind11
+    # Build-time dependencies (from the fork's pyproject.toml [build-system]) go
+    # into a throwaway venv so conan, scikit-build, ... do not end up in
+    # /shared/pyenv or in the lockfile generated from it. setup.py needs only
+    # these, not the runtime packages.
+    BUILD_VENV=/tmp/aer-build-venv
+    rm -rf "$BUILD_VENV"
+    python3.12 -m venv "$BUILD_VENV"
+    "$BUILD_VENV/bin/pip" install --quiet \
+        setuptools wheel ninja \
+        "conan<2.0.0" \
+        "scikit-build>=0.11.0" \
+        "cmake!=3.17.0,!=3.17.1" \
+        "pybind11>=3.0"
+
+    # The cuQuantum / cuTENSOR headers live in the pip packages, so add them to
+    # the compiler include paths as well as passing the *_ROOT hints.
+    AER_INCLUDES="-I${CUQUANTUM_ROOT}/include -I${CUTENSOR_ROOT}/include"
 
     info "Building wheel (CUDA ${CUDA_DOTTED}, arch ${CUDA_ARCH}) — this will take several minutes ..."
-    python3 setup.py bdist_wheel -- \
+    PATH="$BUILD_VENV/bin:$PATH" "$BUILD_VENV/bin/python" setup.py bdist_wheel -- \
         -DAER_THRUST_BACKEND=CUDA \
         -DCMAKE_CUDA_COMPILER="${NVCC_PATH}" \
         -DCMAKE_CUDA_ARCHITECTURES="${CUDA_ARCH}" \
@@ -197,7 +212,10 @@ for pkg in ('nvidia.cutensor', 'cutensor'):
         -DAER_ENABLE_CUQUANTUM=TRUE \
         -DCUQUANTUM_ROOT="${CUQUANTUM_ROOT}" \
         -DCUTENSOR_ROOT="${CUTENSOR_ROOT}" \
+        "-DCMAKE_CUDA_FLAGS=${AER_INCLUDES}" \
+        "-DCMAKE_CXX_FLAGS=${AER_INCLUDES}" \
         -- -j$(nproc)
+    rm -rf "$BUILD_VENV"
 
     WHEEL=$(find "${AER_SRC}/dist" -name "qiskit_aer-*.whl" | sort -V | tail -1)
     [[ -n "$WHEEL" ]] || die "No qiskit_aer wheel found after build — check output above"
