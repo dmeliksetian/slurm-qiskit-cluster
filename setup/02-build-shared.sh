@@ -138,6 +138,8 @@ podman run --rm \
     -e PACKAGES_ONLY="${PACKAGES_ONLY}" \
     -e CUDA_VERSION="${CUDA_VERSION:-}" \
     -e CUDA_ARCH="${CUDA_ARCH:-}" \
+    -e AER_REPO="${AER_REPO:-}" \
+    -e AER_REF="${AER_REF:-}" \
     "${BUILDER_IMAGE}:${IMAGE_TAG}"
 
 # ── Verify outputs ────────────────────────────────────────────────────────────

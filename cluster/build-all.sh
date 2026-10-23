@@ -67,13 +67,12 @@ fi
 
 # ── Step 2c: Build qiskit-aer with GPU support from source ───────────────────
 # There is no official PyPI wheel for newer CUDA versions / architectures
-# (e.g. Blackwell CC 12.0, CUDA 13.x). We build from a patched fork that
-# adds Blackwell support and fixes nlohmann_json >= 3.11 compatibility.
+# (e.g. Blackwell CC 12.0, CUDA 13.x). We build from a patched fork (based on
+# qiskit-aer 0.18) that adds Blackwell support and fixes compatibility issues
+# with recent CUDA Thrust/CCCL and nlohmann_json >= 3.11.
 #
-# Source: github.com/dmeliksetian/qiskit-aer  branch: build/combined-patches
-# Patches applied:
-#   fix-cuda-arch-thrust-compat  — Blackwell sm_120, CUDA 13 Thrust/CCCL compat
-#   fix-nlohmann-3.11-compat     — ADL fix for nlohmann_json >= 3.11
+# Source: AER_REPO at AER_REF (a tag, so a release always builds the same code).
+# The fork's tag v0.2.0 is the tip of build/combined-patches-v2.
 #
 # cuTENSOR and cuQuantum are installed from pip (CUDA-major-suffixed packages),
 # with unversioned .so symlinks created so cmake can link against them.
@@ -81,6 +80,9 @@ fi
 # Requires env vars (set by 02-build-shared.sh, sourced from .env):
 #   CUDA_VERSION  e.g. "13-2"
 #   CUDA_ARCH     e.g. "120"  (integer, no dot)
+# Optional (defaults match .env.example):
+#   AER_REPO      fork to clone
+#   AER_REF       tag or commit to build
 if [[ "${INSTALL_QUANTUM_GPU_PACKAGES:-0}" == "1" ]]; then
     info "Building qiskit-aer with GPU support from source ..."
 
@@ -171,13 +173,16 @@ for pkg in ('nvidia.cutensor', 'cutensor'):
     export CUTENSOR_ROOT CUQUANTUM_ROOT
     export LD_LIBRARY_PATH="${CUTENSOR_ROOT}/lib:${CUQUANTUM_ROOT}/lib:${LD_LIBRARY_PATH:-}"
 
-    # Clone patched fork
+    # Clone patched fork at a pinned tag or commit
+    AER_REPO="${AER_REPO:-https://github.com/dmeliksetian/qiskit-aer.git}"
+    AER_REF="${AER_REF:-v0.2.0}"
     AER_SRC="/tmp/qiskit-aer-build"
     rm -rf "$AER_SRC"
-    info "Cloning dmeliksetian/qiskit-aer@build/combined-patches ..."
-    git clone --depth=1 --branch build/combined-patches \
-        https://github.com/dmeliksetian/qiskit-aer.git "$AER_SRC"
+    info "Cloning ${AER_REPO} @ ${AER_REF} ..."
+    git clone "$AER_REPO" "$AER_SRC"
     cd "$AER_SRC"
+    git checkout --quiet "$AER_REF"
+    info "qiskit-aer source: $(git describe --tags --always) ($(git rev-parse --short HEAD))"
 
     # scikit-build and pybind11 are build-time deps for setup.py bdist_wheel
     pip install scikit-build pybind11
@@ -197,7 +202,9 @@ for pkg in ('nvidia.cutensor', 'cutensor'):
     WHEEL=$(find "${AER_SRC}/dist" -name "qiskit_aer-*.whl" | sort -V | tail -1)
     [[ -n "$WHEEL" ]] || die "No qiskit_aer wheel found after build — check output above"
     info "Installing: $(basename "$WHEEL")"
-    pip install --force-reinstall "$WHEEL"
+    # --no-deps: do not let pip re-resolve dependencies and move packages (qiskit,
+    # numpy, ...) away from the versions pinned in pyenv-frozen.txt.
+    pip install --force-reinstall --no-deps "$WHEEL"
 
     cd /
     rm -rf "$AER_SRC"
@@ -218,7 +225,14 @@ unset _cuq_pkg _cuq_lib
 ACTIVATE_APPEND
     fi
 
-    success "qiskit-aer (GPU) built and installed"
+    # Sanity check. The builder usually has no GPU device attached, so a missing
+    # GPU here is only a warning; the real check is ./setup/05-verify.sh --gpu.
+    if python3 -c "from qiskit_aer import AerSimulator; import sys; sys.exit(0 if 'GPU' in AerSimulator().available_devices() else 1)" 2>/dev/null; then
+        success "qiskit-aer (GPU) built and installed — GPU device reported"
+    else
+        warn "qiskit-aer built, but no GPU device reported in the builder (expected without a GPU attached) — run ./setup/05-verify.sh --gpu"
+        success "qiskit-aer (GPU) built and installed"
+    fi
 fi
 
 # ── Step 3: Build qrmi wheel from source ─────────────────────────────────────
@@ -246,7 +260,7 @@ else
   [[ -n "$WHEEL" ]] || die "No qrmi wheel found after build — check maturin output above"
 
   info "Installing wheel: $(basename $WHEEL)"
-  pip install "$WHEEL"
+  pip install --force-reinstall --no-deps "$WHEEL"
   success "qrmi installed: $(pip show qrmi | grep Version)"
 
   # ── Step 4: Build SPANK plugin ────────────────────────────────────────────────
