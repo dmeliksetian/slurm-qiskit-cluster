@@ -22,9 +22,9 @@
 #   - Credentials in /shared stay outside the image layers
 #
 # Confirmed working packages (see requirements/pyenv-frozen.txt):
-#   qiskit 2.3.0, qrmi 0.10.1, qiskit-ibm-runtime 0.45.1,
-#   qiskit-addon-sqd 0.12.1, ffsim 0.0.67, pyscf 2.12.1,
-#   pulser 1.6.6, qiskit-pasqal-provider 0.1.1
+#   qiskit 2.6.0, qrmi 0.26.4, qiskit-ibm-runtime 0.50.0,
+#   qiskit-addon-sqd 0.14.0, ffsim 0.0.84, pyscf 2.14.0,
+#   pulser 1.9.1, qiskit-pasqal-provider 0.5.0
 #
 # Build sequence
 # ──────────────
@@ -404,13 +404,13 @@ CMD ["slurmd"]
 # BUILDER-GPU — ephemeral artifact builder for qiskit-aer-gpu from source
 # Inherits the full CUDA runtime from gpu, then adds:
 #   - cuda-toolkit-${CUDA_VERSION}  (nvcc + dev headers for compilation)
-#   - nlohmann-json-devel            (required by qiskit-aer with DISABLE_CONAN=ON)
+#   - nlohmann-json-devel            (system copy; the qiskit-aer build now fetches its own via conan)
 #   - scikit-build, pybind11         (Python build deps for setup.py bdist_wheel)
 #   - maturin                        (for qrmi, same as builder)
 #
 # Used by 02-build-shared.sh --quantum-gpu in place of the standard builder.
 # Produces the same /shared/pyenv and spank_qrmi.so outputs, plus a
-# qiskit-aer wheel built from dmeliksetian/qiskit-aer@build/combined-patches.
+# qiskit-aer wheel built from AER_REPO at AER_REF (see .env.example).
 # -----------------------------------------------------------------------------
 FROM gpu AS builder-gpu
 

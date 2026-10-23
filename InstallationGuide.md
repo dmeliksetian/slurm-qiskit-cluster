@@ -301,26 +301,26 @@ The config supports three backend types. Which ones you can use depends on your 
 
 **Free / Open Plan (most users)**
 
-Use `qiskit-runtime-service`. You need:
+Use `ibm-quantum-compute-service` (formerly `qiskit-runtime-service`). You need:
 - An IBM Quantum account: https://quantum.cloud.ibm.com
 - Your IAM API key (found in your account settings)
 - Your IQP instance CRN (found in your IBM Cloud account)
 
 The endpoint URLs are standard and pre-filled in the example:
 ```
-QRMI_IBM_QRS_ENDPOINT: https://quantum.cloud.ibm.com/api/v1
-QRMI_IBM_QRS_IAM_ENDPOINT: https://iam.cloud.ibm.com
+QRMI_IBM_QCS_ENDPOINT: https://quantum.cloud.ibm.com/api/v1
+QRMI_IBM_QCS_IAM_ENDPOINT: https://iam.cloud.ibm.com
 ```
 
 **Reserved / Paid contracts only**
 
-Use `direct-access`. This requires a dedicated IBM Quantum contract and provides AWS S3 credentials for job data transfer. If you have a free or standard account, remove this stanza from your config entirely.
+Use `ibm-quantum-system` (formerly `direct-access`). This requires a dedicated IBM Quantum contract and provides AWS S3 credentials for job data transfer. If you have a free or standard account, remove this stanza from your config entirely.
 
 **Pasqal**
 
 Use `pasqal-cloud`. Requires a Pasqal Cloud account and endpoint URL.
 
-You can define multiple backends of the same type (e.g. three `qiskit-runtime-service` stanzas pointing to different instances). Remove any stanzas for backends you do not have access to.
+You can define multiple backends of the same type (e.g. three `ibm-quantum-compute-service` stanzas pointing to different instances). Remove any stanzas for backends you do not have access to.
 
 After editing, the script will warn you if any `<YOUR ...>` placeholders remain unfilled.
 
@@ -442,14 +442,14 @@ The full pinned package list is in `requirements/pyenv-frozen.txt`. Key packages
 
 | Package | Version | Purpose |
 |---|---|---|
-| qiskit | 2.3.0 | Quantum circuit building and transpilation |
-| qrmi | 0.11.0 | Quantum Resource Management Interface (Rust extension, built from source) |
-| qiskit-ibm-runtime | 0.45.1 | IBM Quantum backend access |
-| qiskit-addon-sqd | 0.12.1 | Sample-based quantum diagonalization |
-| ffsim | 0.0.67 | Fast fermionic simulation |
-| pyscf | 2.12.1 | Quantum chemistry |
+| qiskit | 2.6.0 | Quantum circuit building and transpilation |
+| qrmi | 0.26.4 | Quantum Resource Management Interface (Rust extension, built from source) |
+| qiskit-ibm-runtime | 0.50.0 | IBM Quantum backend access |
+| qiskit-addon-sqd | 0.14.0 | Sample-based quantum diagonalization |
+| ffsim | 0.0.84 | Fast fermionic simulation |
+| pyscf | 2.14.0 | Quantum chemistry |
 | jax / jaxlib | 0.9.0.1 | Accelerated numerical computing |
-| pulser | 1.6.6 | Pasqal neutral atom support |
+| pulser | 1.9.1 | Pasqal neutral atom support |
 | mpi4py | 4.1.1 | MPI Python bindings |
 | cupy-cuda12x | 14.0.1 | GPU computing via CUDA (**NVIDIA only**, installed with `--gpu`) |
 | qiskit-aer | built from source | GPU-accelerated Aer simulation (**NVIDIA only**, built from source with `--quantum-gpu` — no official PyPI wheel for newer CUDA/architectures) |

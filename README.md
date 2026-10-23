@@ -14,10 +14,11 @@ Provides a multi-node Slurm cluster where quantum jobs are submitted through sta
 | Release | Qiskit stack | QRMI config names | Status |
 |---|---|---|---|
 | `v0.2.2` | qiskit 2.3.0, qiskit-aer 0.17.1, qiskit-ibm-runtime 0.45.1, qrmi 0.11 | `qiskit-runtime-service`, `QRMI_IBM_QRS_*` | current |
+| `v0.3.0` | qiskit 2.6.0, qiskit-aer 0.18.0, qiskit-ibm-runtime 0.50.0, qrmi 0.26.4, spank-plugins 0.12.0 | `ibm-quantum-compute-service` / `QRMI_IBM_QCS_*`, `ibm-quantum-system` / `QRMI_IBM_QS_*` | in development (`wip/stack-upgrade-2026-10`) |
 
 The exact package pins for a release are in `requirements/pyenv-frozen.txt`, and the qrmi and spank-plugins versions are the submodule commits recorded in that release. Check out a release tag, then run `git submodule update --init --recursive`.
 
-Upstream QRMI deprecates the `qiskit-runtime-service` resource type and the `QRMI_IBM_QRS_` prefix in favour of `ibm-quantum-compute-service` and `QRMI_IBM_QCS_`. The legacy names stop working after November 21, 2026.
+Upstream QRMI renamed two IBM resource types and their environment variable prefixes: `qiskit-runtime-service` / `QRMI_IBM_QRS_` became `ibm-quantum-compute-service` / `QRMI_IBM_QCS_` (legacy names stop working after November 21, 2026), and `direct-access` / `QRMI_IBM_DA_` became `ibm-quantum-system` / `QRMI_IBM_QS_` (legacy names already removed after July 2, 2026). Releases from v0.3.0 use the new names; `qrmi_config.json` files written for v0.2.x need editing, see the Installation Guide.
 
 ## Architecture
 
@@ -54,7 +55,7 @@ g1        GPU postprocessing (SQD, Dice eigensolver, CuPy)
 - `podman compose` (`dnf install podman-compose` or `pip install podman-compose`)
 - Git with submodule support
 - NVIDIA GPU + drivers (optional — required for g1 / qg1 only)
-- IBM Quantum account for QRMI jobs (free tier supported for `qiskit-runtime-service` backends)
+- IBM Quantum account for QRMI jobs (free tier supported for `ibm-quantum-compute-service` backends)
 
 See [InstallationGuide.md](InstallationGuide.md) for platform-specific setup instructions.
 
