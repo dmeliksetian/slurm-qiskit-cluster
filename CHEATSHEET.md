@@ -1,5 +1,7 @@
 # slurm-qiskit-cluster — Cheat Sheet
 
+`<release>` below is a release tag, for example `v0.2.2`. See the Versions table in [README.md](README.md) for the available releases.
+
 ## 1. Before you start
 
 **Nuclear cleanup** (removes all podman containers, images, volumes):
@@ -21,14 +23,14 @@ git checkout -- .gitignore
 ```bash
 git clone https://github.com/dmeliksetian/slurm-qiskit-cluster.git
 cd slurm-qiskit-cluster
-git checkout v0.2.0
+git checkout <release>
 git submodule update --init --recursive
 ```
 
 **Or update an existing clone to a new release:**
 ```bash
 git fetch --tags
-git checkout v0.2.0
+git checkout <release>
 git submodule update --init --recursive
 ```
 
@@ -61,7 +63,7 @@ git submodule update --init --recursive
 ### C. Upgrade existing cluster — with GPU
 ```bash
 git fetch --tags
-git checkout v0.2.0
+git checkout <release>
 git submodule update --init --recursive
 ./setup/00b-configure-system.sh           # if CUDA_VERSION/CUDA_ARCH not yet in .env
 ./setup/01-build-images.sh --quantum-gpu
@@ -73,7 +75,7 @@ podman restart g1 qg1
 ### D. Upgrade existing cluster — no GPU
 ```bash
 git fetch --tags
-git checkout v0.2.0
+git checkout <release>
 git submodule update --init --recursive
 ./setup/05-verify.sh --qrmi               # nothing to rebuild
 ```

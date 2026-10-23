@@ -171,6 +171,15 @@ git clone --recurse-submodules https://github.com/<you>/slurm-qiskit-cluster.git
 cd slurm-qiskit-cluster
 ```
 
+Then check out the release you want (see the Versions table in [README.md](README.md)) and update the submodules to the commits that release pins:
+
+```bash
+git checkout <release>                # e.g. v0.2.2
+git submodule update --init --recursive
+```
+
+The qrmi and spank-plugins versions are not floating: each release records exact submodule commits, so always re-run `git submodule update` after switching releases.
+
 If you already cloned without `--recurse-submodules`:
 
 ```bash
@@ -528,6 +537,10 @@ podman compose -f cluster/docker-compose.yml restart
 ```
 
 To update pinned versions, edit `requirements/pyenv-frozen.txt` before running `--force`.
+
+qrmi and the SPANK plugin are not pip packages. They are git submodules, so upgrading them means moving the submodule pins (`git -C shared/qrmi checkout <tag>`, and the same for `shared/spank-plugins`) and then running `./setup/02-build-shared.sh --force`. `--packages-only` does not rebuild them.
+
+The package table above lists versions as of the release this guide ships with. `requirements/pyenv-frozen.txt` is authoritative.
 
 To regenerate the lockfile from the current environment:
 

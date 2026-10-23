@@ -9,6 +9,16 @@ A self-contained Slurm cluster for running quantum computing workloads locally u
 
 Provides a multi-node Slurm cluster where quantum jobs are submitted through standard `sbatch` / `salloc` commands and routed to real quantum hardware (IBM Quantum, Pasqal) or GPU-accelerated simulation via a SPANK plugin. The full quantum Python stack is shared across all nodes via a bind-mounted virtual environment, so updating packages never requires rebuilding container images.
 
+## Versions
+
+| Release | Qiskit stack | QRMI config names | Status |
+|---|---|---|---|
+| `v0.2.2` | qiskit 2.3.0, qiskit-aer 0.17.1, qiskit-ibm-runtime 0.45.1, qrmi 0.11 | `qiskit-runtime-service`, `QRMI_IBM_QRS_*` | current |
+
+The exact package pins for a release are in `requirements/pyenv-frozen.txt`, and the qrmi and spank-plugins versions are the submodule commits recorded in that release. Check out a release tag, then run `git submodule update --init --recursive`.
+
+Upstream QRMI deprecates the `qiskit-runtime-service` resource type and the `QRMI_IBM_QRS_` prefix in favour of `ibm-quantum-compute-service` and `QRMI_IBM_QCS_`. The legacy names stop working after November 21, 2026.
+
 ## Architecture
 
 ```
@@ -51,9 +61,11 @@ See [InstallationGuide.md](InstallationGuide.md) for platform-specific setup ins
 ## Quick start
 
 ```bash
-# 1. Clone with submodules
+# 1. Clone with submodules and check out a release (see Versions above)
 git clone --recurse-submodules https://github.com/<you>/slurm-qiskit-cluster.git
 cd slurm-qiskit-cluster
+git checkout <release>                       # e.g. v0.2.2
+git submodule update --init --recursive
 
 # 2. Configure
 cp .env.example .env                         # set SLURM_TAG and versions
@@ -104,7 +116,8 @@ slurm-qiskit-cluster/
     ├── 02-build-shared.sh
     ├── 03-configure-credentials.sh
     ├── 04-start-cluster.sh
-    └── 05-verify.sh
+    ├── 05-verify.sh
+    └── 06-stop-cluster.sh       # clean teardown of the cluster
 ```
 
 ## AI disclosure
