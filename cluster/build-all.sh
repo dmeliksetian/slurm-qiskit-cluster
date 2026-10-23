@@ -265,10 +265,9 @@ else
 
     cd /shared/qrmi
 
-   # Install qrmi build dependencies
-   if [[ -f requirements-dev.txt ]]; then
-      pip install -r requirements-dev.txt --quiet
-   fi
+   # maturin comes from the builder image. qrmi's requirements-dev.txt is not
+   # installed: it pins lint/test tooling (black, pylint, pytest, cibuildwheel)
+   # that has no place in the runtime pyenv.
 
    # Build the wheel — release mode for performance
    maturin build --release
