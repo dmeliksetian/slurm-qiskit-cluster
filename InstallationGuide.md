@@ -50,9 +50,10 @@ GPU acceleration in this cluster is **optional**. The `c1`, `c2`, `q1`, and `log
 
 **Only NVIDIA GPUs with CUDA are supported.** AMD, Intel, and other GPU vendors are not currently supported. Specifically, this cluster has been tested with:
 
-- NVIDIA driver 576.40 or later
-- CUDA 12.9
-- CuPy 14.0.1 (`cupy-cuda12x`)
+- CUDA 13.2 on an NVIDIA RTX PRO 4500 Blackwell (compute capability 12.0), driver 595.45
+- CuPy 14.2.0 (`cupy-cuda13x`; `cupy-cuda12x` is installed instead on a CUDA 12 system)
+
+The CUDA toolkit version installed in the images is taken from the `CUDA Version` (or `CUDA UMD Version`) that `nvidia-smi` reports, and the GPU architecture from its compute capability. Releases before v0.3.0 were tested with driver 576.40 and CUDA 12.9.
 
 If you do not have an NVIDIA GPU, simply omit all `--gpu` and `--quantum-gpu` flags throughout this guide. The `g1` and `qg1` containers will still start but GPU-dependent workloads will fail inside them. All other cluster functionality — Slurm scheduling, Qiskit simulation, QRMI/quantum access — works fully without a GPU.
 
@@ -246,6 +247,8 @@ The `SLURM_TAG` must correspond to a valid tag in https://github.com/SchedMD/slu
 
 `CUDA_VERSION` and `SLURM_CPUS_PER_NODE` are updated automatically when you run `./setup/00b-configure-system.sh` in the next step. You only need to edit them manually if auto-detection produces the wrong value.
 
+`.env.example` also contains `AER_REPO`, `AER_REF` and `AER_JOBS`, which control the qiskit-aer GPU build (`--quantum-gpu`). The defaults work. `AER_JOBS` limits the number of parallel compile jobs; leave it empty unless the build runs out of memory (see the WSL2 notes below).
+
 ---
 
 ## Configure system hardware
@@ -356,6 +359,12 @@ This builds all Dockerfile targets: `builder`, `control`, `compute-base`, `quant
 
 Expected build time: 20–40 minutes depending on your connection (Slurm, PMIx, and OpenMPI are all compiled from source).
 
+If you will use the `qg1` node (GPU-accelerated Aer), build with `--quantum-gpu`. This also builds the `builder-gpu` image, which `02-build-shared.sh --quantum-gpu` needs:
+
+```bash
+./setup/01-build-images.sh --quantum-gpu
+```
+
 To force a full rebuild without layer cache:
 
 ```bash
@@ -419,7 +428,7 @@ Pass `--gpu` to install CuPy (for `g1`), `--quantum-gpu` to install qiskit-aer-g
 ./setup/02-build-shared.sh --gpu --quantum-gpu      # both
 ```
 
-CuPy (`cupy-cuda12x==14.0.1`) is installed from PyPI. `qiskit-aer` with GPU support is built from source (there is no official PyPI wheel for newer CUDA versions or architectures such as Blackwell). The source build clones `dmeliksetian/qiskit-aer@build/combined-patches`, which includes patches for Blackwell (sm_120) support, CUDA 13.x Thrust/CCCL compatibility, and nlohmann_json ≥ 3.11 compatibility. cuTENSOR and cuQuantum are installed from pip and linked against at compile time.
+CuPy (the `cupy-cuda<major>x` package that matches your CUDA major version) is installed from PyPI. `qiskit-aer` with GPU support is built from source (there is no official PyPI wheel for newer CUDA versions or architectures such as Blackwell). The source build clones the `dmeliksetian/qiskit-aer` fork at the tag set by `AER_REF` in `.env` (default `v0.2.0`), which includes patches for Blackwell (sm_120) support, CUDA 13.x Thrust/CCCL compatibility, and nlohmann_json ≥ 3.11 compatibility. cuTENSOR and cuQuantum are installed from pip and linked against at compile time.
 
 Both packages are installed into `/shared/pyenv` rather than baked into the images. They are present on all nodes but only functional on `g1` and `qg1` respectively, where the GPU and CUDA libraries are available. **AMD, Intel, and other GPU vendors are not supported — both packages require NVIDIA CUDA.**
 
@@ -464,7 +473,7 @@ The full pinned package list is in `requirements/pyenv-frozen.txt`. Key packages
 | jax / jaxlib | 0.9.0.1 | Accelerated numerical computing |
 | pulser | 1.9.1 | Pasqal neutral atom support |
 | mpi4py | 4.1.1 | MPI Python bindings |
-| cupy-cuda12x | 14.0.1 | GPU computing via CUDA (**NVIDIA only**, installed with `--gpu`) |
+| cupy-cuda13x (CUDA 13) or cupy-cuda12x (CUDA 12) | latest at build time (14.2.0 when tested) | GPU computing via CUDA (**NVIDIA only**, installed with `--gpu`) |
 | qiskit-aer | built from source | GPU-accelerated Aer simulation (**NVIDIA only**, built from source with `--quantum-gpu` — no official PyPI wheel for newer CUDA/architectures) |
 
 ---
