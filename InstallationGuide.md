@@ -85,9 +85,9 @@ Official Podman installation documentation: https://podman.io/docs/installation
 
 ## Bare-metal GPU setup (NVIDIA only)
 
-> **Skip this section if you do not have an NVIDIA GPU, or if you are running on WSL2.**
+> **Skip this section if you do not have an NVIDIA GPU.** On WSL2, only step 1 (the NVIDIA Container Toolkit) and step 2 (the CDI manifest) apply; see [WSL2-specific setup](#wsl2-specific-setup).
 
-On bare-metal Linux, Podman uses the [Container Device Interface (CDI)](https://github.com/cncf-tags/container-device-interface) to inject the GPU into containers. You need to install the NVIDIA Container Toolkit and generate a CDI manifest once before starting the cluster.
+On bare-metal Linux and on WSL2, Podman uses the [Container Device Interface (CDI)](https://github.com/cncf-tags/container-device-interface) to inject the GPU into containers. You need to install the NVIDIA Container Toolkit and generate a CDI manifest once before starting the cluster.
 
 ### 1. Install the NVIDIA Container Toolkit
 
@@ -161,11 +161,17 @@ ls /dev/dxg
 If this file is missing, your WSL2 kernel or Windows NVIDIA driver needs updating. See:
 https://docs.microsoft.com/en-us/windows/ai/directml/gpu-cuda-in-wsl
 
-#### 3. Know what the Windows driver decides
+#### 3. Install the NVIDIA Container Toolkit and generate the CDI manifest
+
+The `g1` and `qg1` containers request the GPU through a CDI device name (`nvidia.com/gpu=all`), so Podman needs the CDI manifest on WSL2 as well. Do steps 1 and 2 of [Bare-metal GPU setup](#bare-metal-gpu-setup-nvidia-only) (install the toolkit, then `sudo nvidia-ctk cdi generate --output=/etc/cdi/nvidia.yaml`).
+
+The manifest records the location of the Windows driver files inside WSL2 (`/usr/lib/wsl/drivers/...`), and that location changes whenever you update the NVIDIA driver on Windows. **Regenerate the manifest after every Windows driver update.** If you do not, starting the cluster fails with an error like `crun: cannot stat /usr/lib/wsl/drivers/nv_dispig.inf_amd64_.../libcuda.so.1.1: No such file or directory`, and only `g1` and `qg1` are affected.
+
+#### 4. Know what the Windows driver decides
 
 On WSL2 the CUDA version that `00b-configure-system.sh` detects is the one reported by the **Windows** NVIDIA driver (`nvidia-smi` shows `CUDA Version`), and the images install that toolkit version. A newer Windows driver means a newer CUDA toolkit in the images.
 
-#### 4. Limit memory use for the qiskit-aer GPU build
+#### 5. Limit memory use for the qiskit-aer GPU build
 
 WSL2 gives a distribution about half of the host RAM by default. The qiskit-aer GPU build (`--quantum-gpu`) compiles with one job per CPU, and each CUDA compile job can use several GB. If the build is killed or the distribution freezes, set `AER_JOBS` in `.env` (for example `AER_JOBS=8`), or raise the memory limit in `%UserProfile%\.wslconfig`:
 
