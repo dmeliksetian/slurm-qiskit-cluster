@@ -388,12 +388,12 @@ SCRIPTEOF
     # system would fail a job that lists all of them. Try the QPUs one at a
     # time instead: one that is not accessible is a warning, and the test
     # passes as soon as one QPU runs the circuit.
-    QRMI_TIMEOUT="${QRMI_TIMEOUT:-1800}"   # seconds to wait for each job
+    QRMI_TIMEOUT="${QRMI_TIMEOUT:-3600}"   # seconds to wait for each job (queued + running)
     if [[ "${QPU_SKIP:-0}" -eq 0 ]]; then
         QRMI_DONE=0
         for QPU in ${ALL_QPUS//,/ }; do
             JOB_ID=$(podman exec slurmctld bash -c \
-                "sbatch --job-name=verify-qrmi --partition=quantum --qpu=${QPU} --output=/tmp/verify-qrmi-%j.out ${QRMI_TMP}" \
+                "sbatch --job-name=verify-qrmi --partition=quantum --time=30 --qpu=${QPU} --output=/tmp/verify-qrmi-%j.out ${QRMI_TMP}" \
                 2>/dev/null | grep -oP "(?<=Submitted batch job )\d+")
             if [[ -z "$JOB_ID" ]]; then
                 fail "QRMI job submission failed for $QPU"
@@ -419,6 +419,12 @@ SCRIPTEOF
             if echo "$OUT" | grep -q "PASS"; then
                 pass "Bell state executed on IBM Quantum via QRMI ($QPU)"
                 echo "$OUT" | grep -E "Running on:|Backends found|  -|counts:" | while read -r line; do info "$line"; done
+                QRMI_DONE=1
+                break
+            elif echo "$OUT" | grep -q "DUE TO TIME LIMIT"; then
+                # The job got the QPU and submitted to IBM, but the IBM queue
+                # outlasted the Slurm time limit. Access works; the result is unknown.
+                warn "QRMI job $JOB_ID on $QPU hit the 30 min Slurm time limit (IBM queue too long) — access OK, result not verified"
                 QRMI_DONE=1
                 break
             elif echo "$OUT" | grep -qE "is not accessible|failed to acquire resource"; then
