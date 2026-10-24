@@ -286,6 +286,10 @@ else
   info "Building SPANK plugin (spank_qrmi.so) ..."
 
   cd "$SPANK_PLUGIN_DIR"
+  # Always start from a clean build directory. A leftover one (e.g. from an earlier
+  # release) holds CMake ExternalProject stamps that make CMake skip rebuilding
+  # libqrmi.a, so the new plugin would be linked against the old qrmi library.
+  rm -rf build
   mkdir -p build
   cd build
 

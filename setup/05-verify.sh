@@ -65,7 +65,7 @@ submit_and_wait() {
 
     # Submit
     local job_id
-    job_id=$(podman exec "$container" bash -lc "echo '$script' | sbatch --job-name=$job_name --wrap='$script' --output=/tmp/${job_name}-%j.out" 2>&1 | grep -oP '(?<=Submitted batch job )\d+')
+    job_id=$(podman exec "$container" bash -lc "echo '$script' | sbatch --job-name=$job_name --wrap='$script' --output=/tmp/${job_name}-%j.out" 2>&1 | grep -oP '(?<=Submitted batch job )\d+') || true
 
     if [[ -z "$job_id" ]]; then
         echo "SUBMIT_FAILED"
@@ -211,7 +211,7 @@ fi
 # TEST 6 — Slurm batch job
 section "Slurm batch job"
 
-JOB_ID=$(podman exec slurmctld bash -c "sbatch --job-name=verify-qiskit --output=/tmp/verify-qiskit-%j.out --wrap='python3 -c \"import qiskit; print(qiskit.__version__)\"'" 2>/dev/null | grep -oP '(?<=Submitted batch job )\d+')
+JOB_ID=$(podman exec slurmctld bash -c "sbatch --job-name=verify-qiskit --output=/tmp/verify-qiskit-%j.out --wrap='python3 -c \"import qiskit; print(qiskit.__version__)\"'" 2>/dev/null | grep -oP '(?<=Submitted batch job )\d+') || true
 
 if [[ -z "$JOB_ID" ]]; then
     fail "sbatch submission failed"
@@ -292,7 +292,7 @@ SCRIPTEOF
 
         QG1_JOB_ID=$(podman exec slurmctld bash -c \
             "sbatch --job-name=verify-qg1 --partition=quantum_gpu --output=/tmp/verify-qg1-%j.out ${QG1_TMP}" \
-            2>/dev/null | grep -oP "(?<=Submitted batch job )\d+")
+            2>/dev/null | grep -oP "(?<=Submitted batch job )\d+") || true
 
         if [[ -z "$QG1_JOB_ID" ]]; then
             fail "qg1 GPU simulation job submission failed"
@@ -394,7 +394,7 @@ SCRIPTEOF
         for QPU in ${ALL_QPUS//,/ }; do
             JOB_ID=$(podman exec slurmctld bash -c \
                 "sbatch --job-name=verify-qrmi --partition=quantum --time=30 --qpu=${QPU} --output=/tmp/verify-qrmi-%j.out ${QRMI_TMP}" \
-                2>/dev/null | grep -oP "(?<=Submitted batch job )\d+")
+                2>/dev/null | grep -oP "(?<=Submitted batch job )\d+") || true
             if [[ -z "$JOB_ID" ]]; then
                 fail "QRMI job submission failed for $QPU"
                 QRMI_DONE=1
