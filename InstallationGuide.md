@@ -163,7 +163,7 @@ https://docs.microsoft.com/en-us/windows/ai/directml/gpu-cuda-in-wsl
 
 #### 3. Install the NVIDIA Container Toolkit and generate the CDI manifest
 
-The `g1` and `qg1` containers request the GPU through a CDI device name (`nvidia.com/gpu=all`), so Podman needs the CDI manifest on WSL2 as well. Do steps 1 and 2 of [Bare-metal GPU setup](#bare-metal-gpu-setup-nvidia-only) (install the toolkit, then `sudo nvidia-ctk cdi generate --output=/etc/cdi/nvidia.yaml`).
+The `g1` and `qg1` containers request the GPU through a CDI device name (`nvidia.com/gpu=all`), so Podman needs the CDI manifest on WSL2 as well. Do steps 1 and 2 of [Bare-metal GPU setup](#bare-metal-gpu-setup-nvidia-only) (install the toolkit, then `sudo nvidia-ctk cdi generate --output=/etc/cdi/nvidia.yaml`). On WSL2, `nvidia-ctk cdi list` shows a single device, `nvidia.com/gpu=all`, which is the one the cluster uses.
 
 The manifest records the location of the Windows driver files inside WSL2 (`/usr/lib/wsl/drivers/...`), and that location changes whenever you update the NVIDIA driver on Windows. **Regenerate the manifest after every Windows driver update.** If you do not, starting the cluster fails with an error like `crun: cannot stat /usr/lib/wsl/drivers/nv_dispig.inf_amd64_.../libcuda.so.1.1: No such file or directory`, and only `g1` and `qg1` are affected.
 
