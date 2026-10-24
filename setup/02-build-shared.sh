@@ -140,6 +140,7 @@ podman run --rm \
     -e CUDA_ARCH="${CUDA_ARCH:-}" \
     -e AER_REPO="${AER_REPO:-}" \
     -e AER_REF="${AER_REF:-}" \
+    -e AER_JOBS="${AER_JOBS:-}" \
     "${BUILDER_IMAGE}:${IMAGE_TAG}"
 
 # ── Verify outputs ────────────────────────────────────────────────────────────

@@ -160,6 +160,19 @@ ls /dev/dxg
 If this file is missing, your WSL2 kernel or Windows NVIDIA driver needs updating. See:
 https://docs.microsoft.com/en-us/windows/ai/directml/gpu-cuda-in-wsl
 
+#### 3. Know what the Windows driver decides
+
+On WSL2 the CUDA version that `00b-configure-system.sh` detects is the one reported by the **Windows** NVIDIA driver (`nvidia-smi` shows `CUDA Version`), and the images install that toolkit version. A newer Windows driver means a newer CUDA toolkit in the images.
+
+#### 4. Limit memory use for the qiskit-aer GPU build
+
+WSL2 gives a distribution about half of the host RAM by default. The qiskit-aer GPU build (`--quantum-gpu`) compiles with one job per CPU, and each CUDA compile job can use several GB. If the build is killed or the distribution freezes, set `AER_JOBS` in `.env` (for example `AER_JOBS=8`), or raise the memory limit in `%UserProfile%\.wslconfig`:
+
+```ini
+[wsl2]
+memory=32GB
+```
+
 ---
 
 ## Clone the repository

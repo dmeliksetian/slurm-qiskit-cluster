@@ -179,7 +179,7 @@ if [[ "$HAS_GPU" -eq 1 ]]; then
 else
     warn "No GPU detected — g1 and qg1 nodes will not function"
     echo "    GPU is optional. c1, c2, q1 work without it."
-    echo "    WSL2 GPU setup: docs/wsl2-nvidia.md"
+    echo "    WSL2 GPU setup: see the WSL2-specific setup section of InstallationGuide.md"
 fi
 
 # ── Disk space ────────────────────────────────────────────────────────────────

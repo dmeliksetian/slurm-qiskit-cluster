@@ -83,6 +83,7 @@ fi
 # Optional (defaults match .env.example):
 #   AER_REPO      fork to clone
 #   AER_REF       tag or commit to build
+#   AER_JOBS      parallel compile jobs (default: all CPUs)
 if [[ "${INSTALL_QUANTUM_GPU_PACKAGES:-0}" == "1" ]]; then
     info "Building qiskit-aer with GPU support from source ..."
 
@@ -201,8 +202,9 @@ for pkg in ('nvidia.cutensor', 'cutensor'):
     # The cuQuantum / cuTENSOR headers live in the pip packages, so add them to
     # the compiler include paths as well as passing the *_ROOT hints.
     AER_INCLUDES="-I${CUQUANTUM_ROOT}/include -I${CUTENSOR_ROOT}/include"
+    AER_JOBS="${AER_JOBS:-$(nproc)}"
 
-    info "Building wheel (CUDA ${CUDA_DOTTED}, arch ${CUDA_ARCH}) — this will take several minutes ..."
+    info "Building wheel (CUDA ${CUDA_DOTTED}, arch ${CUDA_ARCH}, ${AER_JOBS} jobs) — this will take several minutes ..."
     PATH="$BUILD_VENV/bin:$PATH" "$BUILD_VENV/bin/python" setup.py bdist_wheel -- \
         -DAER_THRUST_BACKEND=CUDA \
         -DCMAKE_CUDA_COMPILER="${NVCC_PATH}" \
@@ -214,7 +216,7 @@ for pkg in ('nvidia.cutensor', 'cutensor'):
         -DCUTENSOR_ROOT="${CUTENSOR_ROOT}" \
         "-DCMAKE_CUDA_FLAGS=${AER_INCLUDES}" \
         "-DCMAKE_CXX_FLAGS=${AER_INCLUDES}" \
-        -- -j$(nproc)
+        -- -j"${AER_JOBS}"
     rm -rf "$BUILD_VENV"
 
     WHEEL=$(find "${AER_SRC}/dist" -name "qiskit_aer-*.whl" | sort -V | tail -1)
