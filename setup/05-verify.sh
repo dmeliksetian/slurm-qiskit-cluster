@@ -339,7 +339,7 @@ python3 - << PYEOF
 from qiskit import QuantumCircuit
 from qiskit.transpiler.preset_passmanagers import generate_preset_pass_manager
 from qrmi.primitives import QRMIService
-from qrmi.primitives.ibm import SamplerV2, get_target
+from qrmi.primitives.ibm import SamplerV2, get_backend
 
 service = QRMIService()
 resources = service.resources()
@@ -352,7 +352,7 @@ for r in resources:
 qrmi = resources[0]
 print("Running on: {}".format(qrmi.resource_id()))
 
-target = get_target(qrmi)
+target = get_backend(qrmi).target
 
 qc = QuantumCircuit(2)
 qc.h(0)

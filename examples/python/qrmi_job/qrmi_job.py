@@ -6,7 +6,7 @@ from qiskit.quantum_info import SparsePauliOp
 from qiskit.transpiler.preset_passmanagers import generate_preset_pass_manager
 
 from qrmi.primitives import QRMIService
-from qrmi.primitives.ibm import EstimatorV2, get_target
+from qrmi.primitives.ibm import EstimatorV2, get_backend
 
 
 load_dotenv()
@@ -16,7 +16,7 @@ resources = service.resources()
 if len(resources) == 0:
     raise ValueError("No quantum resource is available.")
 qrmi = resources[0]
-target = get_target(qrmi)
+target = get_backend(qrmi).target
 
 # Map problem
 num_qubits = target.num_qubits
