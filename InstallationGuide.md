@@ -582,6 +582,22 @@ podman exec c1 /shared/pyenv/bin/pip freeze | grep -v '^qrmi' > requirements/pye
 
 ## Troubleshooting
 
+**`05-verify.sh --gpu` fails with `No module named 'cupy'` or `Simulation device "GPU" is not supported on this system`**
+
+The shared environment was built without the GPU packages. `./setup/02-build-shared.sh` with no flags installs the CPU-only qiskit-aer from the lockfile and no CuPy, and the pre-flight check of `04-start-cluster.sh` still passes because `/shared/pyenv` exists. Stop the cluster and rebuild with the flags for your nodes, as described in [Build the shared environment](#build-the-shared-environment):
+
+```bash
+podman compose -f cluster/docker-compose.yml down
+./setup/01-build-images.sh --quantum-gpu      # only if the builder-gpu image is missing
+./setup/02-build-shared.sh --force --gpu --quantum-gpu
+```
+
+Check what was installed with `podman exec c1 /shared/pyenv/bin/pip list | grep -iE "cupy|qiskit-aer|cuquantum"`. A GPU build lists `cupy`, `cuquantum` and a locally built `qiskit-aer`, and `AerSimulator().available_devices()` on `qg1` returns `('CPU', 'GPU')`.
+
+**`04-start-cluster.sh` fails for `g1` and `qg1` only, with `crun: cannot stat /usr/lib/wsl/drivers/...`**
+
+The CDI manifest is stale after a Windows NVIDIA driver update. Regenerate it with `sudo nvidia-ctk cdi generate --output=/etc/cdi/nvidia.yaml`, then restart the cluster (see [WSL2-specific setup](#wsl2-specific-setup), step 3).
+
 **slurm.conf / gres.conf / docker-compose.yml are missing after clone**
 
 These files are not committed to the repository — they are generated from templates by `00b-configure-system.sh`. If they are missing (e.g. after a fresh clone), run:

@@ -240,7 +240,13 @@ if [[ "$TEST_GPU" -eq 1 ]]; then
         VER=$(run_in g1 "python3 -c 'import cupy; print(cupy.__version__)'" 2>&1)
         pass "cupy $VER importable on g1"
     else
-        fail "cupy import failed on g1 — check CUDA libs and /usr/lib/wsl/lib mount"
+        CUPY_ERR=$(run_in g1 "python3 -c 'import cupy'" 2>&1 || true)
+        if echo "$CUPY_ERR" | grep -q "No module named 'cupy'"; then
+            fail "cupy is not installed in /shared/pyenv — rebuild with: ./setup/02-build-shared.sh --force --gpu"
+        else
+            fail "cupy import failed on g1 — check CUDA libs and /usr/lib/wsl/lib mount"
+            info "$(echo "$CUPY_ERR" | tail -2)"
+        fi
     fi
 
     if run_in g1 "python3 -c 'import cupy; a = cupy.array([1,2,3]); print(a.sum())'" &>/dev/null; then
@@ -309,6 +315,10 @@ SCRIPTEOF
                 info "$(echo "$OUT" | grep -E 'device:|counts:')"
             else
                 fail "qg1 GPU simulation did not produce expected output"
+                if echo "$OUT" | grep -q 'Simulation device "GPU" is not supported'; then
+                    info "qiskit-aer in /shared/pyenv has no GPU support (CPU-only build)."
+                    info "Rebuild with: ./setup/01-build-images.sh --quantum-gpu && ./setup/02-build-shared.sh --force --quantum-gpu"
+                fi
                 info "$OUT"
             fi
         fi
