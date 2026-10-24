@@ -1,7 +1,9 @@
 <!--
-DRAFT. Written from the v0.3.0 development branch and a full rebuild on top of an
-existing v0.2.x install. It has not yet been walked through from a clean v0.2.2
-install. Remove this comment once it has.
+Tested on one machine (NVIDIA Blackwell GPU, Linux, real IBM Quantum hardware) in an
+isolated checkout: fresh v0.2.1 build, upgrade to v0.2.2, then the steps below with the
+wip/stack-upgrade-2026-10 branch standing in for v0.3.0. Each stage passed
+05-verify.sh --gpu --qrmi. Not yet tested: the rollback section, WSL2, and
+GPUs other than Blackwell. Re-run once the v0.3.0 tag exists.
 -->
 
 # Upgrading
@@ -12,8 +14,8 @@ This guide covers upgrading an existing cluster from **v0.2.2 to v0.3.0**. Relea
 
 | | v0.2.2 | v0.3.0 |
 |---|---|---|
-| qiskit | 2.3.0 | 2.6.0 |
-| qiskit-aer | 0.17.1 (GPU build from a patched fork) | 0.18.0 (GPU build from fork tag `v0.2.0`) |
+| qiskit | 2.3.0 in the lockfile (a GPU build installs the newest, see note) | 2.6.0 |
+| qiskit-aer | 0.17.x (GPU build from a patched fork) | 0.18.0 (GPU build from fork tag `v0.2.0`) |
 | qiskit-ibm-runtime | 0.45.1 | 0.50.0 |
 | qiskit-addon-sqd | 0.12.1 | 0.14.0 |
 | qiskit_pasqal_provider / pulser | 0.1.1 / 1.6.6 | 0.5.0 / 1.9.1 |
@@ -22,6 +24,8 @@ This guide covers upgrading an existing cluster from **v0.2.2 to v0.3.0**. Relea
 | spank-plugins | v0.4.0 + 14 commits | 0.12.0 |
 
 The exact package pins are in `requirements/pyenv-frozen.txt`.
+
+Note on v0.2.x: with `--quantum-gpu`, its build installed the Aer wheel with full dependency resolution, which replaced the lockfile's qiskit with the newest release (2.6.1 when this guide was tested). So a v0.2.x GPU cluster may already run a newer qiskit than the lockfile says. v0.3.0 installs the wheel with `--no-deps`, and the lockfile is respected.
 
 **This is a breaking change for `qrmi_config.json`.** Upstream QRMI renamed two IBM resource types and their environment variable prefixes, and v0.3.0 uses the new names. A `qrmi_config.json` written for v0.2.x must be edited (step 3).
 
@@ -126,27 +130,32 @@ Use the flags that match your cluster (`--gpu` for g1, `--quantum-gpu` for qg1).
 
 The script builds the pinned Python environment, the qiskit-aer GPU wheel, the qrmi 0.26.4 wheel and `spank_qrmi.so` from spank-plugins 0.12.0.
 
-### 8. Copy the new config into the cluster
+### 8. Start the cluster
 
-`/etc/slurm` is a named volume shared by all containers. It is filled from the image only when the volume is first created, so a new image does not update it. Copy the migrated file in once:
+```bash
+./setup/04-start-cluster.sh
+```
+
+### 9. Copy the new config into the cluster
+
+`/etc/slurm` is a named volume shared by all containers. It is filled from the image only when the volume is first created, so the rebuilt images do not update it. The containers were removed in step 1, so this step has to come after they are started. Copy the migrated file in once:
 
 ```bash
 podman cp cluster/config/qrmi_config.json slurmctld:/etc/slurm/qrmi_config.json
 ```
 
-Check that a compute node sees it:
+No restart is needed; the SPANK plugin reads the file when a job starts. Check that a compute node sees it:
 ```bash
 podman exec q1 grep -c ibm-quantum-compute-service /etc/slurm/qrmi_config.json
 ```
 
-### 9. Start and verify
+### 10. Verify
 
 ```bash
-./setup/04-start-cluster.sh
 ./setup/05-verify.sh --gpu --qrmi
 ```
 
-Leave out `--gpu` or `--qrmi` if they do not apply to you. A passing run reports qiskit 2.6.0 on every node.
+Leave out `--gpu` or `--qrmi` if they do not apply to you. A passing run reports qiskit 2.6.0 on every node, and `qiskit-aer 0.18.0` on qg1.
 
 The `--qrmi` check submits a real Bell-state job to IBM Quantum and uses your quota. It tries each configured QPU in turn:
 - a QPU that is paused or not accessible gives a warning, and the next one is tried;
@@ -164,6 +173,9 @@ The repository's `.venv` was built with a different Python than the one `python3
 python3 -m venv --upgrade .venv
 .venv/bin/pip install podman-compose==1.5.0
 ```
+
+**`sbatch: error: ... spank_qrmi.so: undefined symbol` and `unrecognized option '--qpu'`**
+The SPANK plugin was linked against an old qrmi library left over from a previous build. Rebuild the images (step 6) so that the builder carries the current `build-all.sh`, which always builds the plugin from a clean directory, then repeat step 7 and restart the cluster.
 
 **A node shows as not responding after you restart a single container**
 slurmctld can hold a stale address for it. Run `podman exec slurmctld scontrol reconfigure`. Restarting the whole cluster with `06-stop-cluster.sh` and `04-start-cluster.sh` avoids this.
@@ -186,8 +198,10 @@ cp ~/qrmi_config.json.v0.2.2 cluster/config/qrmi_config.json
 cp ~/env.v0.2.2 .env
 ./setup/01-build-images.sh --quantum-gpu
 ./setup/02-build-shared.sh --force --gpu --quantum-gpu
-podman cp cluster/config/qrmi_config.json slurmctld:/etc/slurm/qrmi_config.json
 ./setup/04-start-cluster.sh
+podman cp cluster/config/qrmi_config.json slurmctld:/etc/slurm/qrmi_config.json
 ```
+
+The rollback sequence has not been tested.
 
 The old qrmi (v0.11) does not understand the new resource names, so the config backup from "Before you start" must be restored.
