@@ -18,7 +18,7 @@ Provides a multi-node Slurm cluster where quantum jobs are submitted through sta
 
 The exact package pins for a release are in `requirements/pyenv-frozen.txt`, and the qrmi and spank-plugins versions are the submodule commits recorded in that release. Check out a release tag, then run `git submodule update --init --recursive`.
 
-Upstream QRMI renamed two IBM resource types and their environment variable prefixes: `qiskit-runtime-service` / `QRMI_IBM_QRS_` became `ibm-quantum-compute-service` / `QRMI_IBM_QCS_` (legacy names stop working after November 21, 2026), and `direct-access` / `QRMI_IBM_DA_` became `ibm-quantum-system` / `QRMI_IBM_QS_` (legacy names already removed after July 2, 2026). Releases from v0.3.0 use the new names; `qrmi_config.json` files written for v0.2.x need editing, see the Installation Guide.
+Upstream QRMI renamed two IBM resource types and their environment variable prefixes: `qiskit-runtime-service` / `QRMI_IBM_QRS_` became `ibm-quantum-compute-service` / `QRMI_IBM_QCS_` (legacy names stop working after November 21, 2026), and `direct-access` / `QRMI_IBM_DA_` became `ibm-quantum-system` / `QRMI_IBM_QS_` (legacy names already removed after July 2, 2026). Releases from v0.3.0 use the new names; `qrmi_config.json` files written for v0.2.x need editing. See [UPGRADING.md](UPGRADING.md) for the upgrade steps.
 
 ## Architecture
 

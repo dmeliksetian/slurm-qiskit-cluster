@@ -551,6 +551,8 @@ podman compose -f cluster/docker-compose.yml restart
 
 To update pinned versions, edit `requirements/pyenv-frozen.txt` before running `--force`.
 
+To move an existing cluster to a new release, follow [UPGRADING.md](UPGRADING.md); a package update alone is not enough when the release changes qrmi, the SPANK plugin or the configuration format.
+
 qrmi and the SPANK plugin are not pip packages. They are git submodules, so upgrading them means moving the submodule pins (`git -C shared/qrmi checkout <tag>`, and the same for `shared/spank-plugins`) and then running `./setup/02-build-shared.sh --force`. `--packages-only` does not rebuild them.
 
 The package table above lists versions as of the release this guide ships with. `requirements/pyenv-frozen.txt` is authoritative.
