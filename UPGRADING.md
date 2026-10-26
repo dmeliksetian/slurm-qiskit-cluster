@@ -1,11 +1,15 @@
 <!--
-Tested on one machine (NVIDIA Blackwell GPU, Linux, real IBM Quantum hardware) in an
-isolated checkout: fresh v0.2.1 build, upgrade to v0.2.2, then the steps below with the
-wip/stack-upgrade-2026-10 branch standing in for v0.3.0. Each stage passed
-05-verify.sh --gpu --qrmi. That run rebuilt the images; the mounted lockfile and
-build script (step 6 now skipped) were tested separately. Not yet tested: the whole
-walkthrough without the image rebuild, the rollback section, and GPUs other
-than Blackwell. Re-run the walkthrough on the v0.3.0 tag.
+Tested on an NVIDIA Blackwell GPU (Linux) in isolated checkouts, in two runs.
+First: a fresh v0.2.1 build, an upgrade to v0.2.2, then the steps below with the
+wip/stack-upgrade-2026-10 branch standing in for v0.3.0 (images rebuilt); each stage
+passed 05-verify.sh --gpu --qrmi with real IBM Quantum jobs.
+Second, on the released v0.3.0 tag: a fresh v0.2.2 install, then the steps below with
+step 6 skipped (the v0.2.2 builder images were used). The shared environment
+rebuilt in under 5 minutes, 05-verify.sh --gpu passed (28/0/0), and the QRMI path
+was checked against the real ibm_fez backend without submitting a job.
+Not yet tested: the rollback section, and the upgrade (as opposed to a fresh install
+and a package update, which were tested) on GPUs other than Blackwell, e.g. an
+RTX 2080 Ti under WSL2.
 -->
 
 # Upgrading
