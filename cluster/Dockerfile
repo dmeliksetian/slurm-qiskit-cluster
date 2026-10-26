@@ -22,9 +22,9 @@
 #   - Credentials in /shared stay outside the image layers
 #
 # Confirmed working packages (see requirements/pyenv-frozen.txt):
-#   qiskit 2.3.0, qrmi 0.10.1, qiskit-ibm-runtime 0.45.1,
-#   qiskit-addon-sqd 0.12.1, ffsim 0.0.67, pyscf 2.12.1,
-#   pulser 1.6.6, qiskit-pasqal-provider 0.1.1
+#   qiskit 2.6.1, qrmi 0.26.4, qiskit-ibm-runtime 0.51.0,
+#   qiskit-addon-sqd 0.14.0, ffsim 0.0.85, pyscf 2.14.0,
+#   pulser 1.9.1, qiskit-pasqal-provider 0.5.0
 #
 # Build sequence
 # ──────────────
@@ -265,14 +265,12 @@ RUN yum -y install epel-release \
 # ── maturin pinned to version used in confirmed working install ───────────────
 RUN pip3.12 install maturin==1.12.2 build
 
-# ── Copy requirements and build script into image ─────────────────────────────
-# Build context is ./cluster/ — requirements/ is one level up, so we copy
-# it into the image explicitly rather than relying on relative COPY paths.
-COPY requirements/pyenv-frozen.txt    /build/pyenv-frozen.txt
-COPY cluster/build-all.sh             /build/build-all.sh
-RUN chmod +x /build/build-all.sh
-
-CMD ["/build/build-all.sh"]
+# ── Lockfile and build script are NOT baked into this image ──────────────────
+# setup/02-build-shared.sh mounts requirements/pyenv-frozen.txt and
+# cluster/build-all.sh read-only from the checkout at /build/. Editing a pin or
+# the build script therefore takes effect on the next 02-build-shared.sh run
+# without rebuilding any image. This image only provides the toolchain.
+CMD ["bash", "/build/build-all.sh"]
 
 
 # -----------------------------------------------------------------------------
@@ -404,13 +402,13 @@ CMD ["slurmd"]
 # BUILDER-GPU — ephemeral artifact builder for qiskit-aer-gpu from source
 # Inherits the full CUDA runtime from gpu, then adds:
 #   - cuda-toolkit-${CUDA_VERSION}  (nvcc + dev headers for compilation)
-#   - nlohmann-json-devel            (required by qiskit-aer with DISABLE_CONAN=ON)
+#   - nlohmann-json-devel            (system copy; the qiskit-aer build now fetches its own via conan)
 #   - scikit-build, pybind11         (Python build deps for setup.py bdist_wheel)
 #   - maturin                        (for qrmi, same as builder)
 #
 # Used by 02-build-shared.sh --quantum-gpu in place of the standard builder.
 # Produces the same /shared/pyenv and spank_qrmi.so outputs, plus a
-# qiskit-aer wheel built from dmeliksetian/qiskit-aer@build/combined-patches.
+# qiskit-aer wheel built from AER_REPO at AER_REF (see .env.example).
 # -----------------------------------------------------------------------------
 FROM gpu AS builder-gpu
 
@@ -439,8 +437,6 @@ RUN cd /tmp \
 
 RUN pip3.12 install maturin==1.12.2 build scikit-build pybind11
 
-COPY requirements/pyenv-frozen.txt    /build/pyenv-frozen.txt
-COPY cluster/build-all.sh             /build/build-all.sh
-RUN chmod +x /build/build-all.sh
-
-CMD ["/build/build-all.sh"]
+# Lockfile and build script are mounted from the checkout by
+# setup/02-build-shared.sh (see the builder stage above); nothing is baked in.
+CMD ["bash", "/build/build-all.sh"]

@@ -13,15 +13,15 @@
     "IBM Quantum offers two account tiers:",
     "",
     "  FREE (IBM Quantum Platform — Open Plan)",
-    "    - Access via: qiskit-runtime-service",
+    "    - Access via: ibm-quantum-compute-service (formerly qiskit-runtime-service)",
     "    - Credentials needed: IAM API key + IQP instance CRN",
     "    - Get your API key at: https://quantum.cloud.ibm.com",
     "    - Backends available: shared simulators and limited real hardware",
     "    - This is the most common starting point",
-    "    - It requires to set QRMI_IBM_QRS_SESSION_MODE=batch",
+    "    - It requires to set QRMI_IBM_QCS_SESSION_MODE=batch",
     "",
-    "  PAID / RESERVED (IBM Quantum Direct Access)",
-    "    - Access via: direct-access",
+    "  PAID / RESERVED (IBM Quantum System API, formerly Direct Access)",
+    "    - Access via: ibm-quantum-system (formerly direct-access)",
     "    - Requires a dedicated IBM Quantum contract",
     "    - Credentials needed: IAM API key, CRN, AND AWS S3 credentials",
     "    - S3 is used for job data transfer to/from the backend",
@@ -44,44 +44,44 @@
     {
       "_comment": "--- OPTION 1: IBM Quantum Platform (free and paid accounts) ---",
       "name": "ibm_backend_1",
-      "type": "qiskit-runtime-service",
+      "type": "ibm-quantum-compute-service",
       "environment": {
-        "QRMI_IBM_QRS_ENDPOINT": "https://quantum.cloud.ibm.com/api/v1",
-        "QRMI_IBM_QRS_IAM_ENDPOINT": "https://iam.cloud.ibm.com",
-        "QRMI_IBM_QRS_IAM_APIKEY": "<YOUR IAM APIKEY>",
-        "QRMI_IBM_QRS_SERVICE_CRN": "<YOUR IQP INSTANCE CRN>",
-        "QRMI_IBM_QRS_SESSION_MODE": "batch"
+        "QRMI_IBM_QCS_ENDPOINT": "https://quantum.cloud.ibm.com/api/v1",
+        "QRMI_IBM_QCS_IAM_ENDPOINT": "https://iam.cloud.ibm.com",
+        "QRMI_IBM_QCS_IAM_APIKEY": "<YOUR IAM APIKEY>",
+        "QRMI_IBM_QCS_SERVICE_CRN": "<YOUR IQP INSTANCE CRN>",
+        "QRMI_IBM_QCS_SESSION_MODE": "batch"
       }
     },
 
     {
       "_comment": "--- OPTION 1b: Additional IBM Quantum Platform instance (same type, different backend/instance) ---",
       "name": "ibm_backend_2",
-      "type": "qiskit-runtime-service",
+      "type": "ibm-quantum-compute-service",
       "environment": {
-        "QRMI_IBM_QRS_ENDPOINT": "https://quantum.cloud.ibm.com/api/v1",
-        "QRMI_IBM_QRS_IAM_ENDPOINT": "https://iam.cloud.ibm.com",
-        "QRMI_IBM_QRS_IAM_APIKEY": "<YOUR IAM APIKEY>",
-        "QRMI_IBM_QRS_SERVICE_CRN": "<YOUR SECOND IQP INSTANCE CRN>",
-        "QRMI_IBM_QRS_SESSION_MODE": "batch"
+        "QRMI_IBM_QCS_ENDPOINT": "https://quantum.cloud.ibm.com/api/v1",
+        "QRMI_IBM_QCS_IAM_ENDPOINT": "https://iam.cloud.ibm.com",
+        "QRMI_IBM_QCS_IAM_APIKEY": "<YOUR IAM APIKEY>",
+        "QRMI_IBM_QCS_SERVICE_CRN": "<YOUR SECOND IQP INSTANCE CRN>",
+        "QRMI_IBM_QCS_SESSION_MODE": "batch"
       }
     },
 
     {
-      "_comment": "--- OPTION 2: IBM Quantum Direct Access (reserved/paid contracts only) ---",
+      "_comment": "--- OPTION 2: IBM Quantum System API, formerly Direct Access (reserved/paid contracts only) ---",
       "_comment2": "Remove this stanza entirely if you have a free or standard account.",
       "name": "ibm_direct_backend",
-      "type": "direct-access",
+      "type": "ibm-quantum-system",
       "environment": {
-        "QRMI_IBM_DA_ENDPOINT": "<YOUR DIRECT ACCESS ENDPOINT URL>",
-        "QRMI_IBM_DA_IAM_ENDPOINT": "<YOUR IAM ENDPOINT URL>",
-        "QRMI_IBM_DA_IAM_APIKEY": "<YOUR IAM APIKEY FOR THIS BACKEND>",
-        "QRMI_IBM_DA_SERVICE_CRN": "<YOUR DIRECT ACCESS INSTANCE CRN>",
-        "QRMI_IBM_DA_AWS_ACCESS_KEY_ID": "<YOUR AWS ACCESS KEY TO ACCESS S3 BUCKET>",
-        "QRMI_IBM_DA_AWS_SECRET_ACCESS_KEY": "<YOUR AWS SECRET ACCESS KEY TO ACCESS S3 BUCKET>",
-        "QRMI_IBM_DA_S3_ENDPOINT": "<YOUR S3 ENDPOINT>",
-        "QRMI_IBM_DA_S3_BUCKET": "<YOUR S3 BUCKET NAME>",
-        "QRMI_IBM_DA_S3_REGION": "<YOUR S3 BUCKET REGION>"
+        "QRMI_IBM_QS_ENDPOINT": "<YOUR IBM QUANTUM SYSTEM API ENDPOINT URL>",
+        "QRMI_IBM_QS_IAM_ENDPOINT": "<YOUR IAM ENDPOINT URL>",
+        "QRMI_IBM_QS_IAM_APIKEY": "<YOUR IAM APIKEY FOR THIS BACKEND>",
+        "QRMI_IBM_QS_SERVICE_CRN": "<YOUR IBM QUANTUM SYSTEM INSTANCE CRN>",
+        "QRMI_IBM_QS_AWS_ACCESS_KEY_ID": "<YOUR AWS ACCESS KEY TO ACCESS S3 BUCKET>",
+        "QRMI_IBM_QS_AWS_SECRET_ACCESS_KEY": "<YOUR AWS SECRET ACCESS KEY TO ACCESS S3 BUCKET>",
+        "QRMI_IBM_QS_S3_ENDPOINT": "<YOUR S3 ENDPOINT>",
+        "QRMI_IBM_QS_S3_BUCKET": "<YOUR S3 BUCKET NAME>",
+        "QRMI_IBM_QS_S3_REGION": "<YOUR S3 BUCKET REGION>"
       }
     },
 

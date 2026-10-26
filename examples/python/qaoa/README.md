@@ -50,6 +50,9 @@ submit.sh
 
 ## Run
 
+Run this from a compute node (for example `podman exec -it c1 bash`), or on the `login` node after `source /shared/pyenv/bin/activate`. `submit.sh` initialises the run state with NumPy, and the `login` node's default `python3` does not have it.
+
 ```bash
+cd /shared/examples/python/qaoa
 bash submit.sh
 ```

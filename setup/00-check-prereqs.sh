@@ -161,7 +161,7 @@ if [[ "$HAS_GPU" -eq 1 ]]; then
     [[ -n "$GPU" ]] && pass "GPU: $GPU"
 
     # CUDA version
-    CUDA_FULL=$(nvidia-smi 2>/dev/null | grep -oP 'CUDA Version: \K[\d.]+' | head -1 || true)
+    CUDA_FULL=$(nvidia-smi 2>/dev/null | grep -oP 'CUDA (UMD )?Version: \K[\d.]+' | head -1 || true)
     CUDA_MAJOR=$(echo "${CUDA_FULL:-0}" | cut -d. -f1)
     if [[ -n "$CUDA_FULL" ]]; then
         if [[ "$CUDA_MAJOR" -ge 11 && "$CUDA_MAJOR" -le 13 ]]; then
@@ -179,7 +179,7 @@ if [[ "$HAS_GPU" -eq 1 ]]; then
 else
     warn "No GPU detected — g1 and qg1 nodes will not function"
     echo "    GPU is optional. c1, c2, q1 work without it."
-    echo "    WSL2 GPU setup: docs/wsl2-nvidia.md"
+    echo "    WSL2 GPU setup: see the WSL2-specific setup section of InstallationGuide.md"
 fi
 
 # ── Disk space ────────────────────────────────────────────────────────────────

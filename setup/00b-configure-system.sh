@@ -147,7 +147,7 @@ else
             | tr -d ' -')
 
         # CUDA: "12.9" → "12-9"
-        CUDA_FULL=$(nvidia-smi 2>/dev/null | grep -oP 'CUDA Version: \K[\d.]+' | head -1 || true)
+        CUDA_FULL=$(nvidia-smi 2>/dev/null | grep -oP 'CUDA (UMD )?Version: \K[\d.]+' | head -1 || true)
         [[ -n "$CUDA_FULL" ]] && CUDA_VER=$(echo "$CUDA_FULL" | tr '.' '-')
 
         # Compute capability: "12.0" → "120"

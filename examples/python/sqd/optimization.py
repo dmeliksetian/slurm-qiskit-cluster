@@ -3,7 +3,7 @@ from dotenv import load_dotenv
 from qiskit import qpy
 from qiskit.transpiler.preset_passmanagers import generate_preset_pass_manager
 from qrmi.primitives import QRMIService
-from qrmi.primitives.ibm import get_target, get_backend
+from qrmi.primitives.ibm import get_backend
 
 data_folder = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
 os.makedirs(data_folder, exist_ok=True)
@@ -18,7 +18,6 @@ if len(resources) == 0:
     raise ValueError("No quantum resource is available.")
 
 qrmi = resources[0]
-target = get_target(qrmi)
 backend = get_backend(qrmi)
 
 

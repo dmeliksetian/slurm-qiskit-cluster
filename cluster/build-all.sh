@@ -2,12 +2,14 @@
 # =============================================================================
 # build-all.sh — runs inside the builder container
 # Populates /shared/pyenv and builds the SPANK plugin.
-# Called by: podman run --rm -v ./shared:/shared hpc-quantum-builder
+# Called by: setup/02-build-shared.sh (podman run with the mounts below)
 #
 # Expected mounts:
 #   /shared        — host ./shared directory (read/write)
 #                    must already contain qrmi/ and spank-plugins/ submodules
-#   /build         — baked into image (requirements/, this script)
+#   /build         — requirements/pyenv-frozen.txt and this script, mounted
+#                    read-only from the checkout by setup/02-build-shared.sh
+#                    (not baked into the image, so edits need no image rebuild)
 # =============================================================================
 
 set -euo pipefail
@@ -67,13 +69,12 @@ fi
 
 # ── Step 2c: Build qiskit-aer with GPU support from source ───────────────────
 # There is no official PyPI wheel for newer CUDA versions / architectures
-# (e.g. Blackwell CC 12.0, CUDA 13.x). We build from a patched fork that
-# adds Blackwell support and fixes nlohmann_json >= 3.11 compatibility.
+# (e.g. Blackwell CC 12.0, CUDA 13.x). We build from a patched fork (based on
+# qiskit-aer 0.18) that adds Blackwell support and fixes compatibility issues
+# with recent CUDA Thrust/CCCL and nlohmann_json >= 3.11.
 #
-# Source: github.com/dmeliksetian/qiskit-aer  branch: build/combined-patches
-# Patches applied:
-#   fix-cuda-arch-thrust-compat  — Blackwell sm_120, CUDA 13 Thrust/CCCL compat
-#   fix-nlohmann-3.11-compat     — ADL fix for nlohmann_json >= 3.11
+# Source: AER_REPO at AER_REF (a tag, so a release always builds the same code).
+# The fork's tag v0.2.0 is the tip of build/combined-patches-v2.
 #
 # cuTENSOR and cuQuantum are installed from pip (CUDA-major-suffixed packages),
 # with unversioned .so symlinks created so cmake can link against them.
@@ -81,6 +82,10 @@ fi
 # Requires env vars (set by 02-build-shared.sh, sourced from .env):
 #   CUDA_VERSION  e.g. "13-2"
 #   CUDA_ARCH     e.g. "120"  (integer, no dot)
+# Optional (defaults match .env.example):
+#   AER_REPO      fork to clone
+#   AER_REF       tag or commit to build
+#   AER_JOBS      parallel compile jobs (default: all CPUs)
 if [[ "${INSTALL_QUANTUM_GPU_PACKAGES:-0}" == "1" ]]; then
     info "Building qiskit-aer with GPU support from source ..."
 
@@ -171,19 +176,38 @@ for pkg in ('nvidia.cutensor', 'cutensor'):
     export CUTENSOR_ROOT CUQUANTUM_ROOT
     export LD_LIBRARY_PATH="${CUTENSOR_ROOT}/lib:${CUQUANTUM_ROOT}/lib:${LD_LIBRARY_PATH:-}"
 
-    # Clone patched fork
+    # Clone patched fork at a pinned tag or commit
+    AER_REPO="${AER_REPO:-https://github.com/dmeliksetian/qiskit-aer.git}"
+    AER_REF="${AER_REF:-v0.2.0}"
     AER_SRC="/tmp/qiskit-aer-build"
     rm -rf "$AER_SRC"
-    info "Cloning dmeliksetian/qiskit-aer@build/combined-patches ..."
-    git clone --depth=1 --branch build/combined-patches \
-        https://github.com/dmeliksetian/qiskit-aer.git "$AER_SRC"
+    info "Cloning ${AER_REPO} @ ${AER_REF} ..."
+    git clone "$AER_REPO" "$AER_SRC"
     cd "$AER_SRC"
+    git checkout --quiet "$AER_REF"
+    info "qiskit-aer source: $(git describe --tags --always) ($(git rev-parse --short HEAD))"
 
-    # scikit-build and pybind11 are build-time deps for setup.py bdist_wheel
-    pip install scikit-build pybind11
+    # Build-time dependencies (from the fork's pyproject.toml [build-system]) go
+    # into a throwaway venv so conan, scikit-build, ... do not end up in
+    # /shared/pyenv or in the lockfile generated from it. setup.py needs only
+    # these, not the runtime packages.
+    BUILD_VENV=/tmp/aer-build-venv
+    rm -rf "$BUILD_VENV"
+    python3.12 -m venv "$BUILD_VENV"
+    "$BUILD_VENV/bin/pip" install --quiet \
+        setuptools wheel ninja \
+        "conan<2.0.0" \
+        "scikit-build>=0.11.0" \
+        "cmake!=3.17.0,!=3.17.1" \
+        "pybind11>=3.0"
 
-    info "Building wheel (CUDA ${CUDA_DOTTED}, arch ${CUDA_ARCH}) — this will take several minutes ..."
-    DISABLE_CONAN=ON python3 setup.py bdist_wheel -- \
+    # The cuQuantum / cuTENSOR headers live in the pip packages, so add them to
+    # the compiler include paths as well as passing the *_ROOT hints.
+    AER_INCLUDES="-I${CUQUANTUM_ROOT}/include -I${CUTENSOR_ROOT}/include"
+    AER_JOBS="${AER_JOBS:-$(nproc)}"
+
+    info "Building wheel (CUDA ${CUDA_DOTTED}, arch ${CUDA_ARCH}, ${AER_JOBS} jobs) — this will take several minutes ..."
+    PATH="$BUILD_VENV/bin:$PATH" "$BUILD_VENV/bin/python" setup.py bdist_wheel -- \
         -DAER_THRUST_BACKEND=CUDA \
         -DCMAKE_CUDA_COMPILER="${NVCC_PATH}" \
         -DCMAKE_CUDA_ARCHITECTURES="${CUDA_ARCH}" \
@@ -192,12 +216,17 @@ for pkg in ('nvidia.cutensor', 'cutensor'):
         -DAER_ENABLE_CUQUANTUM=TRUE \
         -DCUQUANTUM_ROOT="${CUQUANTUM_ROOT}" \
         -DCUTENSOR_ROOT="${CUTENSOR_ROOT}" \
-        -- -j$(nproc)
+        "-DCMAKE_CUDA_FLAGS=${AER_INCLUDES}" \
+        "-DCMAKE_CXX_FLAGS=${AER_INCLUDES}" \
+        -- -j"${AER_JOBS}"
+    rm -rf "$BUILD_VENV"
 
     WHEEL=$(find "${AER_SRC}/dist" -name "qiskit_aer-*.whl" | sort -V | tail -1)
     [[ -n "$WHEEL" ]] || die "No qiskit_aer wheel found after build — check output above"
     info "Installing: $(basename "$WHEEL")"
-    pip install --force-reinstall "$WHEEL"
+    # --no-deps: do not let pip re-resolve dependencies and move packages (qiskit,
+    # numpy, ...) away from the versions pinned in pyenv-frozen.txt.
+    pip install --force-reinstall --no-deps "$WHEEL"
 
     cd /
     rm -rf "$AER_SRC"
@@ -218,7 +247,14 @@ unset _cuq_pkg _cuq_lib
 ACTIVATE_APPEND
     fi
 
-    success "qiskit-aer (GPU) built and installed"
+    # Sanity check. The builder usually has no GPU device attached, so a missing
+    # GPU here is only a warning; the real check is ./setup/05-verify.sh --gpu.
+    if python3 -c "from qiskit_aer import AerSimulator; import sys; sys.exit(0 if 'GPU' in AerSimulator().available_devices() else 1)" 2>/dev/null; then
+        success "qiskit-aer (GPU) built and installed — GPU device reported"
+    else
+        warn "qiskit-aer built, but no GPU device reported in the builder (expected without a GPU attached) — run ./setup/05-verify.sh --gpu"
+        success "qiskit-aer (GPU) built and installed"
+    fi
 fi
 
 # ── Step 3: Build qrmi wheel from source ─────────────────────────────────────
@@ -233,10 +269,9 @@ else
 
     cd /shared/qrmi
 
-   # Install qrmi build dependencies
-   if [[ -f requirements-dev.txt ]]; then
-      pip install -r requirements-dev.txt --quiet
-   fi
+   # maturin comes from the builder image. qrmi's requirements-dev.txt is not
+   # installed: it pins lint/test tooling (black, pylint, pytest, cibuildwheel)
+   # that has no place in the runtime pyenv.
 
    # Build the wheel — release mode for performance
    maturin build --release
@@ -246,13 +281,17 @@ else
   [[ -n "$WHEEL" ]] || die "No qrmi wheel found after build — check maturin output above"
 
   info "Installing wheel: $(basename $WHEEL)"
-  pip install "$WHEEL"
+  pip install --force-reinstall --no-deps "$WHEEL"
   success "qrmi installed: $(pip show qrmi | grep Version)"
 
   # ── Step 4: Build SPANK plugin ────────────────────────────────────────────────
   info "Building SPANK plugin (spank_qrmi.so) ..."
 
   cd "$SPANK_PLUGIN_DIR"
+  # Always start from a clean build directory. A leftover one (e.g. from an earlier
+  # release) holds CMake ExternalProject stamps that make CMake skip rebuilding
+  # libqrmi.a, so the new plugin would be linked against the old qrmi library.
+  rm -rf build
   mkdir -p build
   cd build
 

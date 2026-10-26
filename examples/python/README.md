@@ -12,6 +12,10 @@ podman cp examples/python/. login:/shared/examples/python/
 
 Then follow the instructions in each example's `README.md`.
 
+The examples that use a QPU (`qrmi_job`, `sqd`, `sqd-mpi`, `sqd-gpu`) request `--qpu=ibm_marrakesh` in their job scripts. Replace it with the name of a resource in your `cluster/config/qrmi_config.json` that is currently available. If that QPU is paused or not accessible, the job fails with `<name> is not accessible` and no quantum resource is available.
+
+Run the `submit.sh` and `sbatch` commands of each example from `/shared/examples/python/<example>`. The `qaoa` example is the exception to "any node": its `submit.sh` runs a Python step with NumPy, so launch it from a compute node (for example `podman exec -it c1 bash`) or after `source /shared/pyenv/bin/activate`. The `login` node's default `python3` does not have the quantum stack.
+
 ## Examples
 
 | Directory | Demonstrates |

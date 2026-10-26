@@ -65,7 +65,7 @@ submit_and_wait() {
 
     # Submit
     local job_id
-    job_id=$(podman exec "$container" bash -lc "echo '$script' | sbatch --job-name=$job_name --wrap='$script' --output=/tmp/${job_name}-%j.out" 2>&1 | grep -oP '(?<=Submitted batch job )\d+')
+    job_id=$(podman exec "$container" bash -lc "echo '$script' | sbatch --job-name=$job_name --wrap='$script' --output=/tmp/${job_name}-%j.out" 2>&1 | grep -oP '(?<=Submitted batch job )\d+') || true
 
     if [[ -z "$job_id" ]]; then
         echo "SUBMIT_FAILED"
@@ -211,7 +211,7 @@ fi
 # TEST 6 — Slurm batch job
 section "Slurm batch job"
 
-JOB_ID=$(podman exec slurmctld bash -c "sbatch --job-name=verify-qiskit --output=/tmp/verify-qiskit-%j.out --wrap='python3 -c \"import qiskit; print(qiskit.__version__)\"'" 2>/dev/null | grep -oP '(?<=Submitted batch job )\d+')
+JOB_ID=$(podman exec slurmctld bash -c "sbatch --job-name=verify-qiskit --output=/tmp/verify-qiskit-%j.out --wrap='python3 -c \"import qiskit; print(qiskit.__version__)\"'" 2>/dev/null | grep -oP '(?<=Submitted batch job )\d+') || true
 
 if [[ -z "$JOB_ID" ]]; then
     fail "sbatch submission failed"
@@ -240,7 +240,13 @@ if [[ "$TEST_GPU" -eq 1 ]]; then
         VER=$(run_in g1 "python3 -c 'import cupy; print(cupy.__version__)'" 2>&1)
         pass "cupy $VER importable on g1"
     else
-        fail "cupy import failed on g1 — check CUDA libs and /usr/lib/wsl/lib mount"
+        CUPY_ERR=$(run_in g1 "python3 -c 'import cupy'" 2>&1 || true)
+        if echo "$CUPY_ERR" | grep -q "No module named 'cupy'"; then
+            fail "cupy is not installed in /shared/pyenv — rebuild with: ./setup/02-build-shared.sh --force --gpu"
+        else
+            fail "cupy import failed on g1 — check CUDA libs and /usr/lib/wsl/lib mount"
+            info "$(echo "$CUPY_ERR" | tail -2)"
+        fi
     fi
 
     if run_in g1 "python3 -c 'import cupy; a = cupy.array([1,2,3]); print(a.sum())'" &>/dev/null; then
@@ -257,7 +263,7 @@ if [[ "$TEST_GPU" -eq 1 ]]; then
     section "Quantum-GPU (qg1)"
 
     AER_GPU_VER=$(podman exec qg1 bash -c \
-        "source /shared/pyenv/bin/activate && pip show qiskit-aer 2>/dev/null | grep '^Version:' | awk '{print $2}'")
+        "source /shared/pyenv/bin/activate && pip show qiskit-aer 2>/dev/null | grep '^Version:' | awk '{print \$2}'")
     if [[ -z "$AER_GPU_VER" ]]; then
         warn "qiskit-aer (GPU) not installed on qg1 — run: ./setup/02-build-shared.sh --quantum-gpu"
     else
@@ -292,7 +298,7 @@ SCRIPTEOF
 
         QG1_JOB_ID=$(podman exec slurmctld bash -c \
             "sbatch --job-name=verify-qg1 --partition=quantum_gpu --output=/tmp/verify-qg1-%j.out ${QG1_TMP}" \
-            2>/dev/null | grep -oP "(?<=Submitted batch job )\d+")
+            2>/dev/null | grep -oP "(?<=Submitted batch job )\d+") || true
 
         if [[ -z "$QG1_JOB_ID" ]]; then
             fail "qg1 GPU simulation job submission failed"
@@ -309,6 +315,10 @@ SCRIPTEOF
                 info "$(echo "$OUT" | grep -E 'device:|counts:')"
             else
                 fail "qg1 GPU simulation did not produce expected output"
+                if echo "$OUT" | grep -q 'Simulation device "GPU" is not supported'; then
+                    info "qiskit-aer in /shared/pyenv has no GPU support (CPU-only build)."
+                    info "Rebuild with: ./setup/01-build-images.sh --quantum-gpu && ./setup/02-build-shared.sh --force --quantum-gpu"
+                fi
                 info "$OUT"
             fi
         fi
@@ -329,7 +339,7 @@ python3 - << PYEOF
 from qiskit import QuantumCircuit
 from qiskit.transpiler.preset_passmanagers import generate_preset_pass_manager
 from qrmi.primitives import QRMIService
-from qrmi.primitives.ibm import SamplerV2, get_target
+from qrmi.primitives.ibm import SamplerV2, get_backend
 
 service = QRMIService()
 resources = service.resources()
@@ -342,7 +352,7 @@ for r in resources:
 qrmi = resources[0]
 print("Running on: {}".format(qrmi.resource_id()))
 
-target = get_target(qrmi)
+target = get_backend(qrmi).target
 
 qc = QuantumCircuit(2)
 qc.h(0)
@@ -380,36 +390,65 @@ SCRIPTEOF
         fail "No QPUs found in qrmi_config.json — check credentials setup"
         QPU_SKIP=1
     else
-        info "Configured QPUs: $ALL_QPUS (job will use first accessible)"
+        info "Configured QPUs: $ALL_QPUS (tried in order; paused or inaccessible systems are skipped)"
         QPU_SKIP=0
     fi
 
-    JOB_ID=""
+    # The SPANK plugin needs every QPU named in --qpu, so a single paused
+    # system would fail a job that lists all of them. Try the QPUs one at a
+    # time instead: one that is not accessible is a warning, and the test
+    # passes as soon as one QPU runs the circuit.
+    QRMI_TIMEOUT="${QRMI_TIMEOUT:-3600}"   # seconds to wait for each job (queued + running)
     if [[ "${QPU_SKIP:-0}" -eq 0 ]]; then
-    JOB_ID=$(podman exec slurmctld bash -c \
-        "sbatch --job-name=verify-qrmi --partition=quantum --qpu=${ALL_QPUS} --output=/tmp/verify-qrmi-%j.out ${QRMI_TMP}" \
-        2>/dev/null | grep -oP "(?<=Submitted batch job )\d+")
-    fi
+        QRMI_DONE=0
+        for QPU in ${ALL_QPUS//,/ }; do
+            JOB_ID=$(podman exec slurmctld bash -c \
+                "sbatch --job-name=verify-qrmi --partition=quantum --time=30 --qpu=${QPU} --output=/tmp/verify-qrmi-%j.out ${QRMI_TMP}" \
+                2>/dev/null | grep -oP "(?<=Submitted batch job )\d+") || true
+            if [[ -z "$JOB_ID" ]]; then
+                fail "QRMI job submission failed for $QPU"
+                QRMI_DONE=1
+                break
+            fi
+            info "QRMI job $JOB_ID submitted for $QPU (QPU queue — may take several minutes)"
 
-    if [[ "${QPU_SKIP:-0}" -eq 1 ]]; then
-        : # already reported above
-    elif [[ -z "$JOB_ID" ]]; then
-        fail "QRMI job submission failed"
-    else
-        pass "QRMI job $JOB_ID submitted to quantum partition (QPU queue — may take several minutes)"
-        for i in $(seq 1 120); do
-            sleep 5
-            STATE=$(podman exec slurmctld bash -c "squeue -j $JOB_ID -h -o %T 2>/dev/null")
-            [[ -z "$STATE" ]] && break
+            STATE=""
+            for ((waited = 0; waited < QRMI_TIMEOUT; waited += 5)); do
+                sleep 5
+                STATE=$(podman exec slurmctld bash -c "squeue -j $JOB_ID -h -o %T 2>/dev/null")
+                [[ -z "$STATE" ]] && break
+            done
+            if [[ -n "$STATE" ]]; then
+                podman exec slurmctld scancel "$JOB_ID" &>/dev/null || true
+                fail "QRMI job $JOB_ID on $QPU still $STATE after ${QRMI_TIMEOUT}s — cancelled (set QRMI_TIMEOUT to wait longer)"
+                QRMI_DONE=1
+                break
+            fi
+
+            OUT=$(podman exec q1 bash -c "cat /tmp/verify-qrmi-${JOB_ID}.out 2>/dev/null || true")
+            if echo "$OUT" | grep -q "PASS"; then
+                pass "Bell state executed on IBM Quantum via QRMI ($QPU)"
+                echo "$OUT" | grep -E "Running on:|Backends found|  -|counts:" | while read -r line; do info "$line"; done
+                QRMI_DONE=1
+                break
+            elif echo "$OUT" | grep -q "DUE TO TIME LIMIT"; then
+                # The job got the QPU and submitted to IBM, but the IBM queue
+                # outlasted the Slurm time limit. Access works; the result is unknown.
+                warn "QRMI job $JOB_ID on $QPU hit the 30 min Slurm time limit (IBM queue too long) — access OK, result not verified"
+                QRMI_DONE=1
+                break
+            elif echo "$OUT" | grep -qE "is not accessible|failed to acquire resource"; then
+                warn "$QPU is not accessible (paused or offline?) — trying the next QPU"
+            else
+                fail "QRMI job on $QPU did not produce expected output"
+                info "$OUT"
+                info "Check credentials in /etc/slurm/qrmi_config.json on slurmctld and q1"
+                QRMI_DONE=1
+                break
+            fi
         done
-        OUT=$(podman exec q1 bash -c "cat /tmp/verify-qrmi-${JOB_ID}.out 2>/dev/null || true")
-        if echo "$OUT" | grep -q "PASS"; then
-            pass "Bell state executed on IBM Quantum via QRMI"
-            echo "$OUT" | grep -E "Running on:|Backends found|  -|counts:" | while read -r line; do info "$line"; done
-        else
-            fail "QRMI job did not produce expected output"
-            info "$OUT"
-            info "Check credentials in /etc/slurm/qrmi_config.json on slurmctld and q1"
+        if [[ "$QRMI_DONE" -eq 0 ]]; then
+            fail "No accessible QPU among: $ALL_QPUS"
         fi
     fi
 fi
