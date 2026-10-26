@@ -1,6 +1,6 @@
 # slurm-qiskit-cluster — Cheat Sheet
 
-`<release>` below is a release tag, for example `v0.2.2`. See the Versions table in [README.md](README.md) for the available releases.
+`<release>` below is a release tag, for example `v0.3.0`. See the Versions table in [README.md](README.md) for the available releases.
 
 ## 1. Before you start
 

@@ -194,7 +194,7 @@ cd slurm-qiskit-cluster
 Then check out the release you want (see the Versions table in [README.md](README.md)) and update the submodules to the commits that release pins:
 
 ```bash
-git checkout <release>                # e.g. v0.2.2
+git checkout <release>                # e.g. v0.3.0
 git submodule update --init --recursive
 ```
 

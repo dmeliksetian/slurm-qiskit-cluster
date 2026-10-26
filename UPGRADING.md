@@ -5,7 +5,7 @@ wip/stack-upgrade-2026-10 branch standing in for v0.3.0. Each stage passed
 05-verify.sh --gpu --qrmi. That run rebuilt the images; the mounted lockfile and
 build script (step 6 now skipped) were tested separately. Not yet tested: the whole
 walkthrough without the image rebuild, the rollback section, and GPUs other
-than Blackwell. Re-run once the v0.3.0 tag exists.
+than Blackwell. Re-run the walkthrough on the v0.3.0 tag.
 -->
 
 # Upgrading
