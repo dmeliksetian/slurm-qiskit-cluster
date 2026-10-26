@@ -470,11 +470,11 @@ The full pinned package list is in `requirements/pyenv-frozen.txt`. Key packages
 
 | Package | Version | Purpose |
 |---|---|---|
-| qiskit | 2.6.0 | Quantum circuit building and transpilation |
+| qiskit | 2.6.1 | Quantum circuit building and transpilation |
 | qrmi | 0.26.4 | Quantum Resource Management Interface (Rust extension, built from source) |
-| qiskit-ibm-runtime | 0.50.0 | IBM Quantum backend access |
+| qiskit-ibm-runtime | 0.51.0 | IBM Quantum backend access |
 | qiskit-addon-sqd | 0.14.0 | Sample-based quantum diagonalization |
-| ffsim | 0.0.84 | Fast fermionic simulation |
+| ffsim | 0.0.85 | Fast fermionic simulation |
 | pyscf | 2.14.0 | Quantum chemistry |
 | jax / jaxlib | 0.9.0.1 | Accelerated numerical computing |
 | pulser | 1.9.1 | Pasqal neutral atom support |

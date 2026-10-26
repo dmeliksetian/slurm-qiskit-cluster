@@ -29,7 +29,7 @@ cycler==0.12.1
 decorator==5.2.1
 dill==0.4.1
 executing==2.2.1
-ffsim==0.0.84
+ffsim==0.0.85
 fonttools==4.61.1
 h5py==3.15.1
 ibm-cloud-sdk-core==3.24.4
@@ -89,12 +89,12 @@ pytest==9.0.2
 python-dateutil==2.9.0.post0
 python-dotenv==1.2.1
 pytokens==0.4.1
-qiskit==2.6.0
+qiskit==2.6.1
 # NOTE: when building with --quantum-gpu, qiskit-aer (CPU) is uninstalled and
 # replaced with a GPU-enabled build compiled from source. See build-all.sh step 2c.
 qiskit-aer==0.18.0
 qiskit-addon-sqd==0.14.0
-qiskit-ibm-runtime==0.50.0
+qiskit-ibm-runtime==0.51.0
 qiskit-mitigation==0.1.1
 qiskit-qasm3-import==0.6.0
 qiskit_pasqal_provider==0.5.0

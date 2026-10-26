@@ -14,12 +14,12 @@ This guide covers upgrading an existing cluster from **v0.2.2 to v0.3.0**. Relea
 
 | | v0.2.2 | v0.3.0 |
 |---|---|---|
-| qiskit | 2.3.0 in the lockfile (a GPU build installs the newest, see note) | 2.6.0 |
+| qiskit | 2.3.0 in the lockfile (a GPU build installs the newest, see note) | 2.6.1 |
 | qiskit-aer | 0.17.x (GPU build from a patched fork) | 0.18.0 (GPU build from fork tag `v0.2.0`) |
-| qiskit-ibm-runtime | 0.45.1 | 0.50.0 |
+| qiskit-ibm-runtime | 0.45.1 | 0.51.0 |
 | qiskit-addon-sqd | 0.12.1 | 0.14.0 |
 | qiskit_pasqal_provider / pulser | 0.1.1 / 1.6.6 | 0.5.0 / 1.9.1 |
-| ffsim / pyscf | 0.0.67 / 2.12.1 | 0.0.84 / 2.14.0 |
+| ffsim / pyscf | 0.0.67 / 2.12.1 | 0.0.85 / 2.14.0 |
 | qrmi | v0.11.0 + 5 commits | 0.26.4 |
 | spank-plugins | v0.4.0 + 14 commits | 0.12.0 |
 
@@ -155,7 +155,7 @@ podman exec q1 grep -c ibm-quantum-compute-service /etc/slurm/qrmi_config.json
 ./setup/05-verify.sh --gpu --qrmi
 ```
 
-Leave out `--gpu` or `--qrmi` if they do not apply to you. A passing run reports qiskit 2.6.0 on every node, and `qiskit-aer 0.18.0` on qg1.
+Leave out `--gpu` or `--qrmi` if they do not apply to you. A passing run reports qiskit 2.6.1 on every node, and `qiskit-aer 0.18.0` on qg1.
 
 The `--qrmi` check submits a real Bell-state job to IBM Quantum and uses your quota. It tries each configured QPU in turn:
 - a QPU that is paused or not accessible gives a warning, and the next one is tried;

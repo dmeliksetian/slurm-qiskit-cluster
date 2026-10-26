@@ -22,8 +22,8 @@
 #   - Credentials in /shared stay outside the image layers
 #
 # Confirmed working packages (see requirements/pyenv-frozen.txt):
-#   qiskit 2.6.0, qrmi 0.26.4, qiskit-ibm-runtime 0.50.0,
-#   qiskit-addon-sqd 0.14.0, ffsim 0.0.84, pyscf 2.14.0,
+#   qiskit 2.6.1, qrmi 0.26.4, qiskit-ibm-runtime 0.51.0,
+#   qiskit-addon-sqd 0.14.0, ffsim 0.0.85, pyscf 2.14.0,
 #   pulser 1.9.1, qiskit-pasqal-provider 0.5.0
 #
 # Build sequence
