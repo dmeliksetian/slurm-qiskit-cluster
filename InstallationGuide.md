@@ -533,7 +533,25 @@ A passing run confirms: containers up, Slurm responding, SPANK plugin loaded, `/
 
 ## Updating packages
 
-Because the quantum stack lives in `/shared/pyenv` on the host rather than baked into the images, you can update packages without rebuilding any images. The builder container also reads `requirements/pyenv-frozen.txt` and `cluster/build-all.sh` from your checkout on every run (they are mounted, not baked into the builder image), so changing either takes effect on the next `02-build-shared.sh`:
+Because the quantum stack lives in `/shared/pyenv` on the host rather than baked into the images, updating packages never requires rebuilding the cluster images. There are three ways, from fastest to slowest.
+
+### 1. Update a few packages (seconds, no rebuild)
+
+To move a few packages to new versions, for example after an upstream release, use `utilities/install-packages.sh`. It runs `pip install` inside a running cluster node against `/shared/pyenv`, without rebuilding images, recompiling qiskit-aer, or touching qrmi and the SPANK plugin:
+
+```bash
+./utilities/install-packages.sh qiskit==2.6.1 qiskit-ibm-runtime==0.51.0 ffsim==0.0.85
+```
+
+It prints the versions before and after. The change takes effect on all nodes at once (the environment is a bind mount); no restart is needed. Afterwards:
+
+- Check that nothing replaced the GPU Aer: on `qg1`, `AerSimulator().available_devices()` must still return `('CPU', 'GPU')`. A package that depends on `qiskit-aer` could pull in the CPU wheel from PyPI.
+- Run `./setup/05-verify.sh --gpu` (add `--qrmi` for a real QPU job).
+- Edit the matching lines of `requirements/pyenv-frozen.txt`, so that the next full rebuild gives the same environment.
+
+### 2. Rebuild the whole environment
+
+A full rebuild installs everything in `requirements/pyenv-frozen.txt` again and rebuilds qrmi and the SPANK plugin; with `--quantum-gpu` it also recompiles qiskit-aer, which takes the longest. The builder container reads the lockfile and `cluster/build-all.sh` from your checkout on every run (they are mounted, not baked into the builder image), so editing either takes effect on the next run. To update pinned versions this way, edit `requirements/pyenv-frozen.txt` and run the matching command:
 
 ```bash
 # Rebuild /shared/pyenv with updated packages (no GPU)
@@ -549,7 +567,11 @@ Because the quantum stack lives in `/shared/pyenv` on the host rather than baked
 ./setup/02-build-shared.sh --force --gpu --quantum-gpu
 ```
 
-To (re)install only the GPU packages without rebuilding qrmi and the SPANK plugin (much faster). `--packages-only` skips `requirements/pyenv-frozen.txt`, so it does **not** apply changed pins; use `--force` for that:
+No image rebuild is needed. Rebuild the images (`./setup/01-build-images.sh`) only if you change `cluster/Dockerfile` or `CUDA_VERSION`.
+
+### 3. Reinstall only the GPU packages
+
+To (re)install only the GPU packages without rebuilding qrmi and the SPANK plugin (much faster). `--packages-only` skips `requirements/pyenv-frozen.txt`, so it does **not** apply changed pins; use way 1 or 2 for that:
 
 ```bash
 ./setup/02-build-shared.sh --packages-only
@@ -558,13 +580,11 @@ To (re)install only the GPU packages without rebuilding qrmi and the SPANK plugi
 ./setup/02-build-shared.sh --packages-only --gpu --quantum-gpu
 ```
 
-Then restart the cluster:
+After way 2 or 3, restart the cluster:
 
 ```bash
 podman compose -f cluster/docker-compose.yml restart
 ```
-
-To update pinned versions, edit `requirements/pyenv-frozen.txt` and run the matching `--force` command above. No image rebuild is needed. Rebuild the images (`./setup/01-build-images.sh`) only if you change `cluster/Dockerfile` or `CUDA_VERSION`.
 
 To move an existing cluster to a new release, follow [UPGRADING.md](UPGRADING.md); a package update alone is not enough when the release changes qrmi, the SPANK plugin or the configuration format.
 
