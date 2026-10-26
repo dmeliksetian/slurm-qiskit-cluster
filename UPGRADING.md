@@ -29,6 +29,8 @@ The exact package pins are in `requirements/pyenv-frozen.txt`.
 
 Note on v0.2.x: with `--quantum-gpu`, its build installed the Aer wheel with full dependency resolution, which replaced the lockfile's qiskit with the newest release (2.6.1 when this guide was tested). So a v0.2.x GPU cluster may already run a newer qiskit than the lockfile says. v0.3.0 installs the wheel with `--no-deps`, and the lockfile is respected.
 
+**This upgrade recompiles the GPU qiskit-aer.** The node images are not rebuilt, but the shared environment is, and that includes compiling qiskit-aer 0.18.0 from source (the fork at tag `v0.2.0`) against your CUDA version, because no prebuilt GPU wheel exists for newer CUDA versions and GPU architectures. This is the longest step and cannot be skipped if you use the `qg1` node; it takes longer on machines with few CPUs or little memory (see `AER_JOBS` in step 4). A cluster without a GPU gets the CPU Aer from the lockfile instead and skips the compile.
+
 **This is a breaking change for `qrmi_config.json`.** Upstream QRMI renamed two IBM resource types and their environment variable prefixes, and v0.3.0 uses the new names. A `qrmi_config.json` written for v0.2.x must be edited (step 3).
 
 ## Before you start
@@ -38,7 +40,7 @@ Note on v0.2.x: with `--quantum-gpu`, its build installed the Aer wheel with ful
   cp cluster/config/qrmi_config.json ~/qrmi_config.json.v0.2.2
   cp .env ~/env.v0.2.2
   ```
-- Plan for downtime and a long rebuild. The shared environment is rebuilt from scratch, and building the GPU qiskit-aer from source takes the longest. The node images are not rebuilt (step 6).
+- Plan for downtime and a long rebuild. The shared environment is rebuilt from scratch, and recompiling the GPU qiskit-aer takes the longest (step 7). The node images are not rebuilt (step 6).
 - Your Slurm accounting database, munge keys and job data live in named volumes. They are kept.
 - `/shared/pyenv` is replaced, not updated. Packages you installed into it by hand are lost.
 
@@ -114,9 +116,9 @@ The Slurm configuration files and the compose file are unchanged between v0.2.2 
 
 The script asks "Generate config files with these values? [y/N]" and has no non-interactive option. Without a terminal it exits without writing anything.
 
-### 6. Rebuild the images (usually not needed)
+### 6. Rebuild the node images (usually not needed)
 
-**Skip this step for v0.2.2 → v0.3.0.** The node images are unchanged between these releases, and the lockfile and `cluster/build-all.sh` are mounted from your checkout when the shared environment is built (step 7), so a new release's pins and build script are used without rebuilding anything.
+**Skip this step for v0.2.2 → v0.3.0.** (This is separate from the qiskit-aer compile in step 7, which you cannot skip.) The node images are unchanged between these releases, and the lockfile and `cluster/build-all.sh` are mounted from your checkout when the shared environment is built (step 7), so a new release's pins and build script are used without rebuilding anything.
 
 Rebuild only if `cluster/Dockerfile` changed in a release you are moving across, or you changed `CUDA_VERSION` in `.env`:
 
@@ -134,7 +136,7 @@ The layer cache may miss for many stages, so this can take a long time.
 
 Use the flags that match your cluster (`--gpu` for g1, `--quantum-gpu` for qg1). Do not use `--packages-only`: it skips the lockfile, qrmi and the SPANK plugin, which all changed.
 
-The script builds the pinned Python environment, the qiskit-aer GPU wheel, the qrmi 0.26.4 wheel and `spank_qrmi.so` from spank-plugins 0.12.0.
+The script builds the pinned Python environment, the qiskit-aer GPU wheel (compiled from source with `--quantum-gpu`; this is the longest part), the qrmi 0.26.4 wheel and `spank_qrmi.so` from spank-plugins 0.12.0.
 
 ### 8. Start the cluster
 
