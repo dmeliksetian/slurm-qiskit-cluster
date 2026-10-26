@@ -265,14 +265,12 @@ RUN yum -y install epel-release \
 # ── maturin pinned to version used in confirmed working install ───────────────
 RUN pip3.12 install maturin==1.12.2 build
 
-# ── Copy requirements and build script into image ─────────────────────────────
-# Build context is ./cluster/ — requirements/ is one level up, so we copy
-# it into the image explicitly rather than relying on relative COPY paths.
-COPY requirements/pyenv-frozen.txt    /build/pyenv-frozen.txt
-COPY cluster/build-all.sh             /build/build-all.sh
-RUN chmod +x /build/build-all.sh
-
-CMD ["/build/build-all.sh"]
+# ── Lockfile and build script are NOT baked into this image ──────────────────
+# setup/02-build-shared.sh mounts requirements/pyenv-frozen.txt and
+# cluster/build-all.sh read-only from the checkout at /build/. Editing a pin or
+# the build script therefore takes effect on the next 02-build-shared.sh run
+# without rebuilding any image. This image only provides the toolchain.
+CMD ["bash", "/build/build-all.sh"]
 
 
 # -----------------------------------------------------------------------------
@@ -439,8 +437,6 @@ RUN cd /tmp \
 
 RUN pip3.12 install maturin==1.12.2 build scikit-build pybind11
 
-COPY requirements/pyenv-frozen.txt    /build/pyenv-frozen.txt
-COPY cluster/build-all.sh             /build/build-all.sh
-RUN chmod +x /build/build-all.sh
-
-CMD ["/build/build-all.sh"]
+# Lockfile and build script are mounted from the checkout by
+# setup/02-build-shared.sh (see the builder stage above); nothing is baked in.
+CMD ["bash", "/build/build-all.sh"]

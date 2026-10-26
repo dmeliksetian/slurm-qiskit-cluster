@@ -2,12 +2,14 @@
 # =============================================================================
 # build-all.sh — runs inside the builder container
 # Populates /shared/pyenv and builds the SPANK plugin.
-# Called by: podman run --rm -v ./shared:/shared hpc-quantum-builder
+# Called by: setup/02-build-shared.sh (podman run with the mounts below)
 #
 # Expected mounts:
 #   /shared        — host ./shared directory (read/write)
 #                    must already contain qrmi/ and spank-plugins/ submodules
-#   /build         — baked into image (requirements/, this script)
+#   /build         — requirements/pyenv-frozen.txt and this script, mounted
+#                    read-only from the checkout by setup/02-build-shared.sh
+#                    (not baked into the image, so edits need no image rebuild)
 # =============================================================================
 
 set -euo pipefail

@@ -459,9 +459,9 @@ The build is skipped if `/shared/pyenv` already exists. To force a rebuild:
 | `./setup/02-build-shared.sh --gpu` | Full build + CuPy for `g1` (NVIDIA CUDA only) |
 | `./setup/02-build-shared.sh --quantum-gpu` | Full build + qiskit-aer (GPU, built from source) for `qg1` (NVIDIA CUDA only) |
 | `./setup/02-build-shared.sh --gpu --quantum-gpu` | Full build + CuPy + qiskit-aer (GPU, built from source) |
-| `./setup/02-build-shared.sh --packages-only` | pip packages only, skip qrmi + SPANK plugin build |
-| `./setup/02-build-shared.sh --packages-only --gpu` | pip packages + CuPy, skip qrmi + SPANK plugin build |
-| `./setup/02-build-shared.sh --packages-only --quantum-gpu` | pip packages + qiskit-aer (GPU, built from source), skip qrmi + SPANK plugin build |
+| `./setup/02-build-shared.sh --packages-only` | Skip the lockfile, qrmi and the SPANK plugin; install nothing new without a GPU flag |
+| `./setup/02-build-shared.sh --packages-only --gpu` | CuPy only (no lockfile, qrmi or SPANK plugin) |
+| `./setup/02-build-shared.sh --packages-only --quantum-gpu` | qiskit-aer (GPU, built from source) only (no lockfile, qrmi or SPANK plugin) |
 | `./setup/02-build-shared.sh --force --gpu --quantum-gpu` | Full rebuild from scratch + CuPy + qiskit-aer (GPU, built from source) |
 
 ### What gets installed in /shared/pyenv
@@ -533,7 +533,7 @@ A passing run confirms: containers up, Slurm responding, SPANK plugin loaded, `/
 
 ## Updating packages
 
-Because the quantum stack lives in `/shared/pyenv` on the host rather than baked into the images, you can update packages without rebuilding any images:
+Because the quantum stack lives in `/shared/pyenv` on the host rather than baked into the images, you can update packages without rebuilding any images. The builder container also reads `requirements/pyenv-frozen.txt` and `cluster/build-all.sh` from your checkout on every run (they are mounted, not baked into the builder image), so changing either takes effect on the next `02-build-shared.sh`:
 
 ```bash
 # Rebuild /shared/pyenv with updated packages (no GPU)
@@ -549,7 +549,7 @@ Because the quantum stack lives in `/shared/pyenv` on the host rather than baked
 ./setup/02-build-shared.sh --force --gpu --quantum-gpu
 ```
 
-To update only pip packages without rebuilding qrmi and the SPANK plugin (much faster):
+To (re)install only the GPU packages without rebuilding qrmi and the SPANK plugin (much faster). `--packages-only` skips `requirements/pyenv-frozen.txt`, so it does **not** apply changed pins; use `--force` for that:
 
 ```bash
 ./setup/02-build-shared.sh --packages-only
@@ -564,7 +564,7 @@ Then restart the cluster:
 podman compose -f cluster/docker-compose.yml restart
 ```
 
-To update pinned versions, edit `requirements/pyenv-frozen.txt` before running `--force`.
+To update pinned versions, edit `requirements/pyenv-frozen.txt` and run the matching `--force` command above. No image rebuild is needed. Rebuild the images (`./setup/01-build-images.sh`) only if you change `cluster/Dockerfile` or `CUDA_VERSION`.
 
 To move an existing cluster to a new release, follow [UPGRADING.md](UPGRADING.md); a package update alone is not enough when the release changes qrmi, the SPANK plugin or the configuration format.
 

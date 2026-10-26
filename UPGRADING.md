@@ -2,8 +2,10 @@
 Tested on one machine (NVIDIA Blackwell GPU, Linux, real IBM Quantum hardware) in an
 isolated checkout: fresh v0.2.1 build, upgrade to v0.2.2, then the steps below with the
 wip/stack-upgrade-2026-10 branch standing in for v0.3.0. Each stage passed
-05-verify.sh --gpu --qrmi. Not yet tested: the rollback section, WSL2, and
-GPUs other than Blackwell. Re-run once the v0.3.0 tag exists.
+05-verify.sh --gpu --qrmi. That run rebuilt the images; the mounted lockfile and
+build script (step 6 now skipped) were tested separately. Not yet tested: the whole
+walkthrough without the image rebuild, the rollback section, and GPUs other
+than Blackwell. Re-run once the v0.3.0 tag exists.
 -->
 
 # Upgrading
@@ -36,7 +38,7 @@ Note on v0.2.x: with `--quantum-gpu`, its build installed the Aer wheel with ful
   cp cluster/config/qrmi_config.json ~/qrmi_config.json.v0.2.2
   cp .env ~/env.v0.2.2
   ```
-- Plan for downtime and a long rebuild. The images and the shared environment are rebuilt from scratch, and building the GPU qiskit-aer from source takes the longest.
+- Plan for downtime and a long rebuild. The shared environment is rebuilt from scratch, and building the GPU qiskit-aer from source takes the longest. The node images are not rebuilt (step 6).
 - Your Slurm accounting database, munge keys and job data live in named volumes. They are kept.
 - `/shared/pyenv` is replaced, not updated. Packages you installed into it by hand are lost.
 
@@ -112,13 +114,17 @@ The Slurm configuration files and the compose file are unchanged between v0.2.2 
 
 The script asks "Generate config files with these values? [y/N]" and has no non-interactive option. Without a terminal it exits without writing anything.
 
-### 6. Rebuild the images
+### 6. Rebuild the images (usually not needed)
+
+**Skip this step for v0.2.2 → v0.3.0.** The node images are unchanged between these releases, and the lockfile and `cluster/build-all.sh` are mounted from your checkout when the shared environment is built (step 7), so a new release's pins and build script are used without rebuilding anything.
+
+Rebuild only if `cluster/Dockerfile` changed in a release you are moving across, or you changed `CUDA_VERSION` in `.env`:
 
 ```bash
 ./setup/01-build-images.sh --quantum-gpu     # drop --quantum-gpu if you do not use qg1
 ```
 
-The layer cache may miss for many stages, so this can take a long time. The builder image contains a copy of `cluster/build-all.sh`, so the images must be rebuilt for the build changes to take effect.
+The layer cache may miss for many stages, so this can take a long time.
 
 ### 7. Rebuild the shared environment
 
@@ -175,7 +181,7 @@ python3 -m venv --upgrade .venv
 ```
 
 **`sbatch: error: ... spank_qrmi.so: undefined symbol` and `unrecognized option '--qpu'`**
-The SPANK plugin was linked against an old qrmi library left over from a previous build. Rebuild the images (step 6) so that the builder carries the current `build-all.sh`, which always builds the plugin from a clean directory, then repeat step 7 and restart the cluster.
+The SPANK plugin was linked against an old qrmi library left over from a previous build. The build script of v0.3.0 and later always builds the plugin from a clean directory, and it is always taken from your checkout, so this should not happen after the steps above. Make sure you are on the v0.3.0 checkout, repeat step 7 and restart the cluster.
 
 **A node shows as not responding after you restart a single container**
 slurmctld can hold a stale address for it. Run `podman exec slurmctld scontrol reconfigure`. Restarting the whole cluster with `06-stop-cluster.sh` and `04-start-cluster.sh` avoids this.
@@ -202,6 +208,6 @@ cp ~/env.v0.2.2 .env
 podman cp cluster/config/qrmi_config.json slurmctld:/etc/slurm/qrmi_config.json
 ```
 
-The rollback sequence has not been tested.
+The images are rebuilt in the rollback because v0.2.2's setup scripts expect the lockfile and build script inside the builder image, which images built from v0.3.0 no longer contain. The rollback sequence has not been tested.
 
 The old qrmi (v0.11) does not understand the new resource names, so the config backup from "Before you start" must be restored.

@@ -130,9 +130,18 @@ info "Running builder container ..."
 info "This will take 10-20 minutes (pyscf, jax, ffsim are large packages)"
 echo ""
 
+# The lockfile and the build script come from this checkout, not from the image:
+# editing a pin or build-all.sh takes effect immediately, with no image rebuild.
+LOCKFILE="$REPO_ROOT/requirements/pyenv-frozen.txt"
+BUILD_SCRIPT="$REPO_ROOT/cluster/build-all.sh"
+[[ -f "$LOCKFILE" ]]     || die "$LOCKFILE not found"
+[[ -f "$BUILD_SCRIPT" ]] || die "$BUILD_SCRIPT not found"
+
 podman run --rm \
     --name slurm-qiskit-builder-run \
     -v "$SHARED_DIR:/shared:z" \
+    -v "$LOCKFILE:/build/pyenv-frozen.txt:ro,z" \
+    -v "$BUILD_SCRIPT:/build/build-all.sh:ro,z" \
     -e INSTALL_GPU_PACKAGES="${GPU}" \
     -e INSTALL_QUANTUM_GPU_PACKAGES="${QUANTUM_GPU}" \
     -e PACKAGES_ONLY="${PACKAGES_ONLY}" \
@@ -141,7 +150,8 @@ podman run --rm \
     -e AER_REPO="${AER_REPO:-}" \
     -e AER_REF="${AER_REF:-}" \
     -e AER_JOBS="${AER_JOBS:-}" \
-    "${BUILDER_IMAGE}:${IMAGE_TAG}"
+    "${BUILDER_IMAGE}:${IMAGE_TAG}" \
+    bash /build/build-all.sh
 
 # ── Verify outputs ────────────────────────────────────────────────────────────
 echo ""
