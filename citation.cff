@@ -2,10 +2,10 @@ cff-version: 1.2.0
 message: "If you use this software, please cite it as below."
 authors:
 - family-names: "Meliksetian"
-  given-names: "Dikran"
+  given-names: "Dikran S"
   orcid: "https://orcid.org/0009-0007-2179-1090"
   affiliation: "University of New Haven"
-title: "slurm-qiskit-cluster: A Containerized, GPU-Accelerated Slurm Cluster for Qiskit and QRMI"
+title: "slurm-qiskit-cluster: A Reproducible Local Testbed for QRMI-Mediated Quantum–HPC Workflows"
 version: 0.3.0
 date-released: 2026-10-26
 url: "https://github.com/dmeliksetian/slurm-qiskit-cluster"
