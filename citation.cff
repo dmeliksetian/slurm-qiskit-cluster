@@ -28,4 +28,8 @@ preferred-citation:
     affiliation: "University of New Haven"
   conference:
     name: "IEEE High Performance Extreme Computing Conference (IEEE HPEC 2026)"
+    location: "Virtual"
+    date-start: 2026-09-14
+    date-end: 2026-09-18
+    website: "https://ieee-hpec.org/"
   year: 2026
