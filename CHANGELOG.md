@@ -53,7 +53,7 @@ Step by step: [UPGRADING.md](UPGRADING.md).
 ### Notes
 
 - **GPU libraries are resolved at build time and are deliberately not pinned.** CuPy, cuQuantum, cuTENSOR and the CUDA libraries are chosen from the CUDA version and GPU architecture that `00b-configure-system.sh` detects on the host, so two builds can differ in those packages.
-- **Tested on** an NVIDIA RTX PRO 4500 Blackwell (CUDA 13.2, Linux), including the upgrade path v0.2.1 → v0.2.2 → v0.3.0, and on an RTX 2080 Ti under WSL2 (CUDA 13.4), including a fresh install. The final bump to qiskit 2.6.1, qiskit-ibm-runtime 0.51.0 and ffsim 0.0.85 was verified without a live QPU job, because of IBM queue lengths: job submission and result decoding were checked separately, qrmi's Python unit tests pass, and `05-verify.sh --qrmi` with a real IBM Quantum job passed on the preceding versions (qiskit 2.6.0, qiskit-ibm-runtime 0.50.0, ffsim 0.0.84).
+- **Tested on** an NVIDIA RTX PRO 4500 Blackwell (CUDA 13.2, Linux), including the upgrade path v0.2.1 → v0.2.2 → v0.3.0, and on an RTX 2080 Ti under WSL2 (CUDA 13.4), including a fresh install. On the final package versions (qiskit 2.6.1, qiskit-ibm-runtime 0.51.0, ffsim 0.0.85, qiskit-aer 0.18.0, qrmi 0.26.4), `05-verify.sh --gpu --qrmi` passed with a real Bell-state job on `ibm_fez`, and the shipped `qrmi_job` example, unmodified, completed on `ibm_marrakesh`. Earlier, while the IBM queues were too long for a live job, job submission and result decoding were checked separately, and qrmi's Python unit tests pass.
 - The upgrade from a clean v0.2.2 install to the v0.3.0 tag, without rebuilding the images, was tested on the Blackwell machine. The rollback section of [UPGRADING.md](UPGRADING.md) has not been tested.
 
 ## [0.2.2] - 2026-10-23
