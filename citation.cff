@@ -4,6 +4,7 @@ authors:
 - family-names: "Meliksetian"
   given-names: "Dikran"
   orcid: "https://orcid.org/0009-0007-2179-1090"
+  affiliation: "University of New Haven"
 title: "slurm-qiskit-cluster: A Containerized, GPU-Accelerated Slurm Cluster for Qiskit and QRMI"
 version: 0.3.0
 date-released: 2026-10-26
@@ -17,3 +18,14 @@ keywords:
   - "hpc"
   - "gpu acceleration"
   - "qrmi"
+preferred-citation:
+  type: conference-paper
+  title: "slurm-qiskit-cluster: A Reproducible Local Testbed for QRMI-Mediated Quantum–HPC Workflows"
+  authors:
+  - family-names: "Meliksetian"
+    given-names: "Dikran S"
+    orcid: "https://orcid.org/0009-0007-2179-1090"
+    affiliation: "University of New Haven"
+  conference:
+    name: "IEEE High Performance Extreme Computing Conference (IEEE HPEC 2026)"
+  year: 2026
