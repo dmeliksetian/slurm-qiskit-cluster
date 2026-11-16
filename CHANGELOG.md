@@ -2,6 +2,33 @@
 
 All notable changes to this project are listed here, newest first. Versions are git tags (`vX.Y.Z`); see the Versions table in [README.md](README.md) for what each release contains. To move an existing cluster to a new release, follow [UPGRADING.md](UPGRADING.md).
 
+## [0.3.1] - 2026-11-16
+
+A security and maintenance release: no new features, no configuration changes, no node-image rebuild. To upgrade from 0.3.0, rebuild the shared environment as described in [UPGRADING.md](UPGRADING.md).
+
+### Security
+
+- **qiskit 2.6.1 → 2.6.2** fixes CVE-2026-116499 ([IBM Security Bulletin](https://www.ibm.com/support/pages/node/7295238), CVSS 8.4, local attack vector): `qiskit.qpy.load()` could execute arbitrary code when it deserialized a crafted QPY file in a format version below 13. The 2.6.2 release replaces the SymPy-based expression parser used for such files and limits the recursion depth when loading. The examples load QPY files (`sqd`, `sqd-mpi`, `sqd-gpu`) from the shared run directories; the files this project writes are format 18, but anyone who can write to those directories could plant an old-format one, so the upgrade is recommended.
+
+### Changed
+
+- **qrmi 0.26.4 → 0.27.0** and **spank-plugins 0.12.0 → 0.13.0**. The plugin now also sets `QRMI_QPU` for `srun`.
+- **Lockfile**: qiskit-ibm-runtime 0.51.0 → 0.52.1, qiskit-addon-sqd 0.14.0 → 0.14.1, ffsim 0.0.85 → 0.0.86, pyscf 2.14.0 → 2.15.0, pulser (with pulser-core and pulser-simulation) 1.9.1 → 1.10.0, qiskit-aer 0.18.0 → 0.18.2. qiskit-mitigation stays at 0.1.1, which qiskit-ibm-runtime 0.52.1 requires exactly.
+- **qiskit-aer**: the lockfile entry applies only to clusters built without `--quantum-gpu`. With `--quantum-gpu`, the shared environment contains the GPU build from the fork tag `AER_REF` (`v0.2.0`, qiskit-aer 0.18.0) instead, and every node has it. Moving the GPU build to 0.18.2 needs a rebased fork and a new `AER_REF`.
+- **The examples and `05-verify.sh` use `ExecutorSampler` and `ExecutorEstimator`** (`qrmi.primitives.ibm`) instead of `SamplerV2` and `EstimatorV2`. qrmi 0.27.0 deprecates the old classes, because IBM's server-side `sampler` and `estimator` programs are deprecated; they print a `FutureWarning` and will be removed no sooner than about February 2027. The new classes need qiskit-ibm-runtime 0.50 or later and the resource type `ibm-quantum-compute-service` or `ibm-quantum-system`. Differences that matter if you migrate your own scripts (also in [UPGRADING.md](UPGRADING.md)): the sampler's default shots are 4096 instead of 1024, options are validated on the client, and `run_options` is gone. The examples set `default_shots` explicitly.
+
+### Documentation
+
+- **Backend names depend on your IBM Quantum account, plan, instance and region.** The names in `qrmi_config.json.example` and in the example job scripts (`ibm_marrakesh`, ...) are only examples. The Installation Guide, the examples README, the example configuration and a comment in every example job script now say so, and that a job asking for a name that is not defined or cannot be acquired fails instead of using another QPU.
+- A v0.3.0 → v0.3.1 section in [UPGRADING.md](UPGRADING.md), including the quick path for the security fix alone.
+- Version tables in the README and the Installation Guide; `citation.cff` is at 0.3.1.
+
+### Notes
+
+- **Tested** on the NVIDIA RTX PRO 4500 Blackwell machine, as an in-place upgrade of a running v0.3.0 cluster: the shared environment was rebuilt in 277 s without rebuilding any image, and all six nodes reported the same versions. `05-verify.sh --gpu` passed (28/0/0) and so did `--gpu --qrmi` (29/0/0, a real Bell-state job on `ibm_fez`). With the new classes, `05-verify.sh --qrmi` passed with a real job on `ibm_fez`, `qrmi_job` completed on `ibm_marrakesh`, the `sqd`, `sqd-mpi` and `sqd-gpu` chains completed on real hardware (80,000 shots each, as expected), and so did `mpi-example` and `qaoa`. qrmi 0.27.0's own Python unit tests pass (238 passed; 110 skipped, all of them Maestro tests that need an external server). The SQD energy errors of the example runs vary with the hardware sampling (0.000 to 0.147 in this round).
+- **Not repeated** on the RTX 2080 Ti / WSL2 machine, and the rollback section of [UPGRADING.md](UPGRADING.md) is still untested.
+- The legacy IBM names (`qiskit-runtime-service`, `QRMI_IBM_QRS_*`) are still accepted by qrmi 0.27.0, but upstream's transition period ends on 2026-11-21 and later qrmi releases will drop them. The configuration of this project already uses the new names; the new executor classes do not support `qiskit-runtime-service` at all.
+
 ## [0.3.0] - 2026-10-26
 
 ### Upgrade notes (read before upgrading from 0.2.x)
@@ -82,6 +109,7 @@ Step by step: [UPGRADING.md](UPGRADING.md).
 
 Earlier history: `git log v0.2.0`.
 
+[0.3.1]: https://github.com/dmeliksetian/slurm-qiskit-cluster/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/dmeliksetian/slurm-qiskit-cluster/compare/v0.2.2...v0.3.0
 [0.2.2]: https://github.com/dmeliksetian/slurm-qiskit-cluster/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/dmeliksetian/slurm-qiskit-cluster/compare/v0.2.0...v0.2.1

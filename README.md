@@ -13,8 +13,9 @@ Provides a multi-node Slurm cluster where quantum jobs are submitted through sta
 
 | Release | Qiskit stack | QRMI config names | Status |
 |---|---|---|---|
-| `v0.2.2` | qiskit 2.3.0 (lockfile; see note), qiskit-aer 0.17.x, qiskit-ibm-runtime 0.45.1, qrmi 0.11 | `qiskit-runtime-service`, `QRMI_IBM_QRS_*` | previous |
-| `v0.3.0` | qiskit 2.6.1, qiskit-aer 0.18.0, qiskit-ibm-runtime 0.51.0, qrmi 0.26.4, spank-plugins 0.12.0 | `ibm-quantum-compute-service` / `QRMI_IBM_QCS_*`, `ibm-quantum-system` / `QRMI_IBM_QS_*` | current |
+| `v0.2.2` | qiskit 2.3.0 (lockfile; see note), qiskit-aer 0.17.x, qiskit-ibm-runtime 0.45.1, qrmi 0.11 | `qiskit-runtime-service`, `QRMI_IBM_QRS_*` | older |
+| `v0.3.0` | qiskit 2.6.1, qiskit-aer 0.18.0, qiskit-ibm-runtime 0.51.0, qrmi 0.26.4, spank-plugins 0.12.0 | `ibm-quantum-compute-service` / `QRMI_IBM_QCS_*`, `ibm-quantum-system` / `QRMI_IBM_QS_*` | previous |
+| `v0.3.1` | qiskit 2.6.2 (security fix), qiskit-aer 0.18.0 (GPU, fork tag `v0.2.0`; 0.18.2 on CPU-only clusters), qiskit-ibm-runtime 0.52.1, qrmi 0.27.0, spank-plugins 0.13.0 | `ibm-quantum-compute-service` / `QRMI_IBM_QCS_*`, `ibm-quantum-system` / `QRMI_IBM_QS_*` (unchanged from v0.3.0) | current |
 
 Note: a v0.2.x build with `--quantum-gpu` installs the newest qiskit instead of the lockfile's (2.6.1 when tested) because its Aer wheel install re-resolves dependencies; v0.3.0 fixes this. The exact package pins for a release are in `requirements/pyenv-frozen.txt`, and the qrmi and spank-plugins versions are the submodule commits recorded in that release. Check out a release tag, then run `git submodule update --init --recursive`.
 
@@ -65,7 +66,7 @@ See [InstallationGuide.md](InstallationGuide.md) for platform-specific setup ins
 # 1. Clone with submodules and check out a release (see Versions above)
 git clone --recurse-submodules https://github.com/<you>/slurm-qiskit-cluster.git
 cd slurm-qiskit-cluster
-git checkout <release>                       # e.g. v0.3.0
+git checkout <release>                       # e.g. v0.3.1
 git submodule update --init --recursive
 
 # 2. Configure

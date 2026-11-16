@@ -194,7 +194,7 @@ cd slurm-qiskit-cluster
 Then check out the release you want (see the Versions table in [README.md](README.md)) and update the submodules to the commits that release pins:
 
 ```bash
-git checkout <release>                # e.g. v0.3.0
+git checkout <release>                # e.g. v0.3.1
 git submodule update --init --recursive
 ```
 
@@ -344,6 +344,8 @@ Use `pasqal-cloud`. Requires a Pasqal Cloud account and endpoint URL.
 
 You can define multiple backends of the same type (e.g. three `ibm-quantum-compute-service` stanzas pointing to different instances). Remove any stanzas for backends you do not have access to.
 
+**Backend names depend on your account and region.** The `name` of each IBM resource must be the exact name of a quantum backend that your IBM Quantum instance can use. Which backends that is depends on your account, plan, instance and region, so other users will see different ones. The names in `qrmi_config.json.example` (`ibm_backend_1`, ...) are placeholders, and the example job scripts under `examples/python/` request `--qpu=ibm_marrakesh`, which is only an example. Define the backends your instance offers, then change `--qpu` in the example scripts to one of those names (`grep -rn -- "--qpu" examples/python` lists them). A job that asks for a name that is not defined in `qrmi_config.json`, or that cannot be acquired (for example because the system is paused), fails; it does not fall back to another QPU. `05-verify.sh --qrmi` takes the names from your configuration and tries them in turn.
+
 After editing, the script will warn you if any `<YOUR ...>` placeholders remain unfilled.
 
 After the cluster is started, the config file must also be copied into the running containers:
@@ -470,14 +472,14 @@ The full pinned package list is in `requirements/pyenv-frozen.txt`. Key packages
 
 | Package | Version | Purpose |
 |---|---|---|
-| qiskit | 2.6.1 | Quantum circuit building and transpilation |
-| qrmi | 0.26.4 | Quantum Resource Management Interface (Rust extension, built from source) |
-| qiskit-ibm-runtime | 0.51.0 | IBM Quantum backend access |
-| qiskit-addon-sqd | 0.14.0 | Sample-based quantum diagonalization |
-| ffsim | 0.0.85 | Fast fermionic simulation |
-| pyscf | 2.14.0 | Quantum chemistry |
+| qiskit | 2.6.2 | Quantum circuit building and transpilation |
+| qrmi | 0.27.0 | Quantum Resource Management Interface (Rust extension, built from source) |
+| qiskit-ibm-runtime | 0.52.1 | IBM Quantum backend access |
+| qiskit-addon-sqd | 0.14.1 | Sample-based quantum diagonalization |
+| ffsim | 0.0.86 | Fast fermionic simulation |
+| pyscf | 2.15.0 | Quantum chemistry |
 | jax / jaxlib | 0.9.0.1 | Accelerated numerical computing |
-| pulser | 1.9.1 | Pasqal neutral atom support |
+| pulser | 1.10.0 | Pasqal neutral atom support |
 | mpi4py | 4.1.1 | MPI Python bindings |
 | cupy-cuda13x (CUDA 13) or cupy-cuda12x (CUDA 12) | latest at build time (14.2.0 when tested) | GPU computing via CUDA (**NVIDIA only**, installed with `--gpu`) |
 | qiskit-aer | built from source | GPU-accelerated Aer simulation (**NVIDIA only**, built from source with `--quantum-gpu` — no official PyPI wheel for newer CUDA/architectures) |
