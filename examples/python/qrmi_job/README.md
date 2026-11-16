@@ -4,7 +4,7 @@
 
 ## What it does
 
-Builds a random parameterised circuit (`pauli_two_design`) and an observable (`SparsePauliOp`), transpiles it to the target QPU, and runs it using `EstimatorV2` through the QRMI interface. Prints the job ID and resulting expectation value.
+Builds a random parameterised circuit (`pauli_two_design`) and an observable (`SparsePauliOp`), transpiles it to the target QPU, and runs it using `ExecutorEstimator` through the QRMI interface. Prints the job ID and resulting expectation value.
 
 This is the minimal template for any QPU job on the cluster — acquire a QRMI resource, transpile, run, read results.
 
@@ -15,7 +15,7 @@ qrmi_job.sh
   └── srun python qrmi_job.py
         acquire QRMI resource → get target
         build + transpile circuit
-        EstimatorV2.run() → print expectation value
+        ExecutorEstimator.run() → print expectation value
 ```
 
 ## Files

@@ -10,7 +10,7 @@
 #
 # Options:
 #   --gpu     Include GPU tests: cupy on g1, GPU-accelerated Aer simulation on qg1
-#   --qrmi    Run a Bell state circuit on IBM Quantum via QRMI SamplerV2
+#   --qrmi    Run a Bell state circuit on IBM Quantum via QRMI ExecutorSampler
 #             (requires valid credentials and network access; QPU queue may take minutes)
 #
 # Without options, only local tests are run (no credentials or GPU needed).
@@ -339,7 +339,7 @@ python3 - << PYEOF
 from qiskit import QuantumCircuit
 from qiskit.transpiler.preset_passmanagers import generate_preset_pass_manager
 from qrmi.primitives import QRMIService
-from qrmi.primitives.ibm import SamplerV2, get_backend
+from qrmi.primitives.ibm import ExecutorSampler, get_backend
 
 service = QRMIService()
 resources = service.resources()
@@ -352,7 +352,8 @@ for r in resources:
 qrmi = resources[0]
 print("Running on: {}".format(qrmi.resource_id()))
 
-target = get_backend(qrmi).target
+backend = get_backend(qrmi)
+target = backend.target
 
 qc = QuantumCircuit(2)
 qc.h(0)
@@ -362,7 +363,7 @@ qc.measure_all()
 pm = generate_preset_pass_manager(optimization_level=1, target=target)
 isa_circuit = pm.run(qc)
 
-sampler = SamplerV2(qrmi, options={"default_shots": 100})
+sampler = ExecutorSampler(backend, options={"default_shots": 100})
 job = sampler.run([(isa_circuit,)])
 print("Job ID: {}".format(job.job_id()))
 

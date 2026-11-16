@@ -3,7 +3,7 @@ execution.py — Step 3: Run ISA circuits on quantum hardware and save counts.
 """
 
 from qiskit.primitives import BitArray
-from qrmi.primitives.ibm import SamplerV2
+from qrmi.primitives.ibm import ExecutorSampler, get_backend
 
 from config import ISA_CIRCUITS_FILE, COUNTS_FILE, DEFAULT_SHOTS
 from common import load_circuits, save_counts, get_qrmi_resource, get_logger
@@ -17,7 +17,8 @@ if __name__ == "__main__":
 
     qrmi = get_qrmi_resource()
     options = {"default_shots": DEFAULT_SHOTS}
-    sampler = SamplerV2(qrmi, options=options)
+    backend = get_backend(qrmi)
+    sampler = ExecutorSampler(backend, options=options)
 
     log.info(f"Submitting {len(isa_circuits)} circuits with {DEFAULT_SHOTS} shots each")
     job = sampler.run(isa_circuits)

@@ -5,7 +5,7 @@ from qiskit import qpy
 from qiskit.primitives import BitArray
 
 from qrmi.primitives import QRMIService
-from qrmi.primitives.ibm import SamplerV2
+from qrmi.primitives.ibm import ExecutorSampler, get_backend
 
 
 load_dotenv()
@@ -28,7 +28,8 @@ qrmi = resources[0]
 options = {
     "default_shots": 10000,
 }
-sampler = SamplerV2(qrmi, options=options)
+backend = get_backend(qrmi)
+sampler = ExecutorSampler(backend, options=options)
 job = sampler.run(isa_circuits)
 
 # Combine the counts from the individual Trotter circuits

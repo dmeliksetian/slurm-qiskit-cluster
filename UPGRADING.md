@@ -7,6 +7,9 @@ Second, on the released v0.3.0 tag: a fresh v0.2.2 install, then the steps below
 step 6 skipped (the v0.2.2 builder images were used). The shared environment
 rebuilt in under 5 minutes, 05-verify.sh --gpu passed (28/0/0), and the QRMI path
 was checked against the real ibm_fez backend without submitting a job.
+Third, v0.3.0 to v0.3.1: done in place on the running v0.3.0 cluster (stop, move the
+submodules and the lockfile, 02-build-shared.sh --force in under 5 minutes, start, verify);
+the versions were identical on all nodes and the examples ran on real hardware.
 Not yet tested: the rollback section, and the upgrade (as opposed to a fresh install
 and a package update, which were tested) on GPUs other than Blackwell, e.g. an
 RTX 2080 Ti under WSL2.
@@ -14,7 +17,45 @@ RTX 2080 Ti under WSL2.
 
 # Upgrading
 
-This guide covers upgrading an existing cluster from **v0.2.2 to v0.3.0**. Releases older than v0.2.2 are not covered; upgrade to v0.2.2 first. See the Versions table in [README.md](README.md) for what each release contains.
+## From v0.3.0 to v0.3.1
+
+v0.3.1 is a security and maintenance release. It needs **no configuration change** and **no rebuild of the node images**: you stop the cluster, move to the new release, and rebuild the shared environment.
+
+```bash
+./setup/06-stop-cluster.sh
+git fetch --tags
+git checkout v0.3.1
+git submodule update --init --recursive      # qrmi 0.27.0, spank-plugins 0.13.0
+./setup/02-build-shared.sh --force --gpu --quantum-gpu   # flags as for your cluster
+./setup/04-start-cluster.sh
+./setup/05-verify.sh --gpu --qrmi            # --qrmi submits a real job and uses QPU quota
+```
+
+The rebuild is needed because qrmi and the SPANK plugin are rebuilt from the new submodules, and it recompiles the GPU qiskit-aer, as in v0.3.0. It took under 5 minutes on the Blackwell test machine. `utilities/install-packages.sh` alone is not enough for this release.
+
+**If you only want the security fix** (qiskit 2.6.1 → 2.6.2, see the changelog), you can apply it in seconds to a running cluster, without any rebuild or restart, as described under "Updating packages" in [InstallationGuide.md](InstallationGuide.md):
+
+```bash
+./utilities/install-packages.sh qiskit==2.6.2
+```
+
+Then check that `qg1` still reports `('CPU', 'GPU')` for `AerSimulator().available_devices()`. This shortcut was tested for earlier qiskit versions, not separately for 2.6.2.
+
+**If your own scripts use `qrmi.primitives.ibm.SamplerV2` or `EstimatorV2`**, they keep working in qrmi 0.27.0 but print a `FutureWarning`: qrmi will remove them no sooner than about February 2027, because IBM's server-side `sampler` and `estimator` programs are deprecated. Switch to `ExecutorSampler` and `ExecutorEstimator`, which take the backend instead of the resource:
+
+```python
+from qrmi.primitives.ibm import ExecutorSampler, get_backend
+
+backend = get_backend(qrmi)          # qrmi is the resource you already select
+sampler = ExecutorSampler(backend, options={"default_shots": 10000})
+job = sampler.run(isa_circuits)      # results are the same PrimitiveResult objects
+```
+
+Differences to know: the default number of shots of the sampler is 4096 instead of 1024 (the examples in this repository set `default_shots` explicitly), options are validated on the client (unknown option names raise an error, and `run_options` is gone, its fields are now top-level options), and the resource type must be `ibm-quantum-compute-service` or `ibm-quantum-system` (the old `qiskit-runtime-service` type does not support the executor program). The upstream note is `docs/migration/v0.27.0_ibm_executor.md` in the qrmi repository.
+
+## From v0.2.2 to v0.3.0
+
+This guide covers upgrading an existing cluster from **v0.2.2 to v0.3.0**. To go from v0.2.2 straight to v0.3.1, follow the steps below and check out `v0.3.1` in step 2; the changes after v0.3.0 are listed in [CHANGELOG.md](CHANGELOG.md). Releases older than v0.2.2 are not covered; upgrade to v0.2.2 first. See the Versions table in [README.md](README.md) for what each release contains.
 
 ## What changes in v0.3.0
 
@@ -67,7 +108,7 @@ git submodule update --init --recursive
 git submodule status
 ```
 
-The submodule status should show `shared/qrmi` at `0.26.4` and `shared/spank-plugins` at `0.12.0`, with no leading `+` or `-`.
+The submodule status should show `shared/qrmi` and `shared/spank-plugins` at the versions of your release (`0.26.4` and `0.12.0` for v0.3.0, `0.27.0` and `0.13.0` for v0.3.1), with no leading `+` or `-`.
 
 ### 3. Migrate `qrmi_config.json`
 
@@ -94,7 +135,7 @@ sed -i -e 's/qiskit-runtime-service/ibm-quantum-compute-service/g' \
 python3 -c "import json; json.load(open('cluster/config/qrmi_config.json')); print('valid JSON')"
 ```
 
-`cluster/config/qrmi_config.json.example` shows the new format. Do not skip this step: qrmi 0.26.4 accepts the old Quantum Platform names only until **November 21, 2026**, and it no longer accepts `direct-access` at all.
+`cluster/config/qrmi_config.json.example` shows the new format. Do not skip this step: upstream accepts the old Quantum Platform names only until **November 21, 2026** (after that, qrmi releases drop them), and qrmi no longer accepts `direct-access` at all.
 
 ### 4. Update `.env`
 
@@ -167,7 +208,7 @@ podman exec q1 grep -c ibm-quantum-compute-service /etc/slurm/qrmi_config.json
 ./setup/05-verify.sh --gpu --qrmi
 ```
 
-Leave out `--gpu` or `--qrmi` if they do not apply to you. A passing run reports qiskit 2.6.1 on every node, and `qiskit-aer 0.18.0` on qg1.
+Leave out `--gpu` or `--qrmi` if they do not apply to you. A passing run reports the qiskit version pinned in `requirements/pyenv-frozen.txt` on every node (2.6.1 for v0.3.0, 2.6.2 for v0.3.1), and `qiskit-aer 0.18.0` on qg1.
 
 The `--qrmi` check submits a real Bell-state job to IBM Quantum and uses your quota. It tries each configured QPU in turn:
 - a QPU that is paused or not accessible gives a warning, and the next one is tried;

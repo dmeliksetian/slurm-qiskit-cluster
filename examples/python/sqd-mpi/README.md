@@ -19,8 +19,8 @@ submit.sh
   ├── [2] optimization.sh  → optimization.py     (1 node)
   │         Transpile circuits to ISA.
   │
-  ├── [3] execution.sh     → execution.py        (partition=quantum, ibm_torino)
-  │         Sample circuits on QPU via SamplerV2.
+  ├── [3] execution.sh     → execution.py        (partition=quantum, --qpu=<your backend>)
+  │         Sample circuits on QPU via ExecutorSampler.
   │
   └── [4] postprocessing.sh → postprocessing.py  (2 nodes, MPI)
             Round-robin batch assignment across ranks.

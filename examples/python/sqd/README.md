@@ -18,8 +18,8 @@ submit.sh
   │         Transpile circuits to ISA using the QPU target (optimization_level=3).
   │         Saves: data/isa_circuits.qpy
   │
-  ├── [3] execution.sh     → execution.py        (partition=quantum, ibm_torino)
-  │         Sample all ISA circuits via SamplerV2 (10,000 shots each).
+  ├── [3] execution.sh     → execution.py        (partition=quantum, --qpu=<your backend>)
+  │         Sample all ISA circuits via ExecutorSampler (10,000 shots each).
   │         Saves: data/counts.json
   │
   └── [4] postprocessing.sh → postprocessing.py
@@ -34,7 +34,7 @@ submit.sh
 |------|-------------|
 | `mapping.py` | SIAM circuit generation with ffsim Trotter evolution |
 | `optimization.py` | ISA transpilation via QRMI backend |
-| `execution.py` | QPU sampling via QRMI SamplerV2 |
+| `execution.py` | QPU sampling via QRMI ExecutorSampler |
 | `postprocessing.py` | Classical SQD diagonalization |
 | `submit.sh` | Submits the full 4-job chain automatically |
 
