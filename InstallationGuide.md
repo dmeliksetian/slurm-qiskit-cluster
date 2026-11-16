@@ -542,7 +542,7 @@ Because the quantum stack lives in `/shared/pyenv` on the host rather than baked
 To move a few packages to new versions, for example after an upstream release, use `utilities/install-packages.sh`. It runs `pip install` inside a running cluster node against `/shared/pyenv`, without rebuilding images, recompiling qiskit-aer, or touching qrmi and the SPANK plugin:
 
 ```bash
-./utilities/install-packages.sh qiskit==2.6.1 qiskit-ibm-runtime==0.51.0 ffsim==0.0.85
+./utilities/install-packages.sh qiskit==2.6.2 qiskit-ibm-runtime==0.52.1 ffsim==0.0.86
 ```
 
 It prints the versions before and after. The change takes effect on all nodes at once (the environment is a bind mount); no restart is needed. Afterwards:

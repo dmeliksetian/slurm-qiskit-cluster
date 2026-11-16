@@ -108,7 +108,7 @@ git submodule update --init --recursive
 git submodule status
 ```
 
-The submodule status should show `shared/qrmi` at `0.26.4` and `shared/spank-plugins` at `0.12.0`, with no leading `+` or `-`.
+The submodule status should show `shared/qrmi` and `shared/spank-plugins` at the versions of your release (`0.26.4` and `0.12.0` for v0.3.0, `0.27.0` and `0.13.0` for v0.3.1), with no leading `+` or `-`.
 
 ### 3. Migrate `qrmi_config.json`
 
@@ -135,7 +135,7 @@ sed -i -e 's/qiskit-runtime-service/ibm-quantum-compute-service/g' \
 python3 -c "import json; json.load(open('cluster/config/qrmi_config.json')); print('valid JSON')"
 ```
 
-`cluster/config/qrmi_config.json.example` shows the new format. Do not skip this step: qrmi 0.26.4 accepts the old Quantum Platform names only until **November 21, 2026**, and it no longer accepts `direct-access` at all.
+`cluster/config/qrmi_config.json.example` shows the new format. Do not skip this step: upstream accepts the old Quantum Platform names only until **November 21, 2026** (after that, qrmi releases drop them), and qrmi no longer accepts `direct-access` at all.
 
 ### 4. Update `.env`
 
@@ -208,7 +208,7 @@ podman exec q1 grep -c ibm-quantum-compute-service /etc/slurm/qrmi_config.json
 ./setup/05-verify.sh --gpu --qrmi
 ```
 
-Leave out `--gpu` or `--qrmi` if they do not apply to you. A passing run reports qiskit 2.6.1 on every node, and `qiskit-aer 0.18.0` on qg1.
+Leave out `--gpu` or `--qrmi` if they do not apply to you. A passing run reports the qiskit version pinned in `requirements/pyenv-frozen.txt` on every node (2.6.1 for v0.3.0, 2.6.2 for v0.3.1), and `qiskit-aer 0.18.0` on qg1.
 
 The `--qrmi` check submits a real Bell-state job to IBM Quantum and uses your quota. It tries each configured QPU in turn:
 - a QPU that is paused or not accessible gives a warning, and the next one is tried;
