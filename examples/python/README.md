@@ -12,7 +12,12 @@ podman cp examples/python/. login:/shared/examples/python/
 
 Then follow the instructions in each example's `README.md`.
 
-The examples that use a QPU (`qrmi_job`, `sqd`, `sqd-mpi`, `sqd-gpu`) request `--qpu=ibm_marrakesh` in their job scripts. Replace it with the name of a resource in your `cluster/config/qrmi_config.json` that is currently available. If that QPU is paused or not accessible, the job fails with `<name> is not accessible` and no quantum resource is available.
+**Backend names.** The examples that use a QPU (`qrmi_job`, `sqd`, `sqd-mpi`, `sqd-gpu`) request `--qpu=ibm_marrakesh` in their job scripts. That name is only an example. The backends you can use depend on your IBM Quantum account, plan, instance and region, so other users will see different ones. Before running these examples:
+
+1. Define the backends your instance offers in `cluster/config/qrmi_config.json`; the `name` of each resource is the backend name.
+2. Change `--qpu=ibm_marrakesh` in every example job script that has it (`grep -rn -- "--qpu" examples/python`) to one of those names.
+
+If the name is not defined in `qrmi_config.json`, or the QPU is paused or not accessible, the job fails with `<name> is not accessible` and does not run on another QPU.
 
 Run the `submit.sh` and `sbatch` commands of each example from `/shared/examples/python/<example>`. The `qaoa` example is the exception to "any node": its `submit.sh` runs a Python step with NumPy, so launch it from a compute node (for example `podman exec -it c1 bash`) or after `source /shared/pyenv/bin/activate`. The `login` node's default `python3` does not have the quantum stack.
 

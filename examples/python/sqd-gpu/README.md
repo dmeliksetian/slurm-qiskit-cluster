@@ -12,7 +12,7 @@ Same SIAM problem as `sqd/` and `sqd-mpi/`, with the same QPU execution step. Th
 submit.sh
   ├── [1] mapping.sh       → mapping.py          (1 node)
   ├── [2] optimization.sh  → optimization.py     (1 node)
-  ├── [3] execution.sh     → execution.py        (partition=quantum, ibm_torino)
+  ├── [3] execution.sh     → execution.py        (partition=quantum, --qpu=<your backend>)
   └── [4] postprocessing.sh → postprocessing.py  (g1, GPU)
             h1e, h2e built as CuPy arrays on GPU.
             SQD iterative loop: config recovery → subsampling →

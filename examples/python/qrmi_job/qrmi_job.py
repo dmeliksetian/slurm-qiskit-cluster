@@ -6,7 +6,7 @@ from qiskit.quantum_info import SparsePauliOp
 from qiskit.transpiler.preset_passmanagers import generate_preset_pass_manager
 
 from qrmi.primitives import QRMIService
-from qrmi.primitives.ibm import EstimatorV2, get_backend
+from qrmi.primitives.ibm import ExecutorEstimator, get_backend
 
 
 load_dotenv()
@@ -16,7 +16,8 @@ resources = service.resources()
 if len(resources) == 0:
     raise ValueError("No quantum resource is available.")
 qrmi = resources[0]
-target = get_backend(qrmi).target
+backend = get_backend(qrmi)
+target = backend.target
 
 # Map problem
 num_qubits = target.num_qubits
@@ -39,7 +40,7 @@ t_obs = obs.apply_layout(t_qc.layout)
 
 # Execute
 options = {}
-estimator = EstimatorV2(qrmi, options=options)
+estimator = ExecutorEstimator(backend, options=options)
 job = estimator.run([(t_qc, t_obs, parameter_values)])
 print(f"Job ID: {job.job_id()}")
 
